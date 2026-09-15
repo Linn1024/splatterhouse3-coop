@@ -1,0 +1,13 @@
+*.md.bak
+/Splatterhouse 3 (USA).md
+/diagnostics/
+__pycache__/
+*.o
+*.dll
+*.exe
+*.lnk
+*.dol
+*.state
+/bizhawk/bizhawk-splatterhouse.ini
+
+/backups/
