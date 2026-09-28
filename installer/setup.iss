@@ -108,7 +108,7 @@ begin
   if CurPageID = RomPage.ID then begin
     ErrorMessage := ValidateSelectedRom;
     Result := ErrorMessage = '';
-    if not Result then MsgBox(ErrorMessage, mbError, MB_OK);
+    if not Result then SuppressibleMsgBox(ErrorMessage, mbError, MB_OK, IDOK);
   end;
 end;
 
