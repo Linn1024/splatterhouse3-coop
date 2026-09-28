@@ -1,204 +1,129 @@
 # Splatterhouse 3 Co-op
 
-Playable prototype using the emulator-assisted approach from Aladdin Co-op.
+An experimental two-player co-op version of Splatterhouse 3 for Windows. Play
+as two independently controlled Ricks with separate health and power meters,
+shared lives, and coordinated room exits. The original game ROM stays unchanged.
 
-## Install on Windows (64-bit)
+## Download and install
 
-This repository contains source code. **Code > Download ZIP does not include
-the executable, emulator DLLs, or game ROM.** Build the project once using the
-steps below. The standalone launcher does not require BizHawk or Python.
+**[Download the Windows installer](https://github.com/Linn1024/splatterhouse3-coop/releases/download/v0.1.0/Splatterhouse3-Coop-0.1.0-windows-x64-setup.exe)**
 
-### 1. Get the source and compiler
+1. Run the installer on **Windows 10 or 11, 64-bit (x64)**.
+2. When prompted, select your own **unmodified Splatterhouse 3 (USA) ROM**.
+   Setup verifies it and copies it into the game folder. You can also skip
+   this step and add the ROM later.
+3. Finish setup and open **Splatterhouse 3 Co-op** from the Start menu.
+4. Press **Enter** at the title screen. Co-op starts automatically in gameplay.
 
-Download [the source ZIP](https://github.com/Linn1024/splatterhouse3-coop/archive/refs/heads/main.zip)
-and extract it to a writable folder, for example `C:\Games\splatterhouse3-coop`.
-Open the extracted folder containing `build.ps1`; do not run from inside the ZIP.
-Alternatively, with Git installed:
+No compiler, Python, separate emulator, or administrator access is required.
+The installer creates Start-menu shortcuts and offers an optional desktop shortcut.
+**The game ROM is not included.**
 
-```powershell
-git clone https://github.com/Linn1024/splatterhouse3-coop.git
-cd splatterhouse3-coop
-```
+Prefer no installer? Download the
+[portable ZIP](https://github.com/Linn1024/splatterhouse3-coop/releases/download/v0.1.0/Splatterhouse3-Coop-0.1.0-windows-x64-portable.zip),
+extract the entire archive to a writable folder, add your ROM as described below,
+and run `Splatterhouse3-Coop.exe`. Keep the `engine` folder beside the executable.
+GitHub's **Code > Download ZIP** contains source code; use the release downloads
+above to play without building.
 
-Install a **64-bit MinGW-w64 GCC toolchain**, such as a Win64/x86_64 ZIP from
-[WinLibs](https://winlibs.com/). Extract it, for example to `C:\Tools\mingw64`.
-Its `bin` folder must contain `gcc.exe`, `g++.exe`, and `mingw32-make.exe`.
-Use your actual extracted path in the next command.
+### Supported ROM
 
-### 2. Build
-
-Open PowerShell in the project folder and run:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -ToolchainBin "C:\Tools\mingw64\bin"
-```
-
-Always supply `-ToolchainBin`: the script's default points to the developer's
-local compiler. The execution-policy option applies only to this PowerShell
-process. A successful build creates:
-
-```text
-Splatterhouse3-Coop.exe
-engine/genesis_plus_gx_libretro.dll
-bizhawk/splatterhouse_coop_libretro.dll
-bizhawk/splatterhouse_engine.dll
-```
-
-### 3. Add your ROM
-
-Supply your own unmodified **Splatterhouse 3 (USA)** ROM. It must be exactly
-2,097,152 bytes and match this SHA-256:
+The supported ROM is exactly **2,097,152 bytes**, with SHA-256:
 
 ```text
 8c7737912cf948a606a683e32f4b6a0a4303215cdc99b39fbc5976c196c45710
 ```
 
-Name it exactly `Splatterhouse 3 (USA).md` and put it beside the executable.
-Enable filename extensions in File Explorer to avoid a doubled extension.
-Renaming a different ROM does not make it compatible. Check the hash with:
+The installer accepts any filename and renames its imported copy automatically.
+To add it manually, open **Game folder** in the Start-menu group and place the
+ROM beside `Splatterhouse3-Coop.exe`, named exactly `Splatterhouse 3 (USA).md`.
+For the portable version, use the folder you extracted. Extract compressed ROMs
+first; renaming another version will not make it compatible.
+
+To verify a file yourself, open PowerShell in its folder and run:
 
 ```powershell
 Get-FileHash -LiteralPath '.\Splatterhouse 3 (USA).md' -Algorithm SHA256
 ```
 
-### 4. Launch
+## Controls
 
-Double-click `Splatterhouse3-Coop.exe`, or run:
+Both players can use one keyboard. Two Xbox-compatible controllers are also
+supported; controller hardware has not yet been tested extensively.
 
-```powershell
-.\Splatterhouse3-Coop.exe
-```
-
-Press Enter at the title screen; player two joins automatically during gameplay.
-Keep `engine\genesis_plus_gx_libretro.dll` in its folder beside the executable.
-No shortcut is required or included. Saves are written to `coop-save.state`
-beside the executable, so keep the project in a folder you can write to.
-See the controls below, or the optional [BizHawk setup](bizhawk/README.md).
-
-### Troubleshooting
-
-- **Executable missing:** build first; GitHub's source ZIP contains no binaries.
-- **Compiler or make not recognized:** check `-ToolchainBin` points to the
-  folder containing all three compiler tools listed above.
-- **ROM missing or differs from the supported version:** check its location,
-  exact filename, size, and SHA-256. Extract compressed ROM files first.
-- **Unable to load the experimental emulator core:** check that
-  `engine\genesis_plus_gx_libretro.dll` exists and was built with the same
-  64-bit toolchain as the launcher. Keep the generated folder layout intact.
-- **Could not save game:** move the project to a writable folder.
-
-## Play
-
-### Launch and controls
-
-After installation, run `Splatterhouse3-Coop.exe`.
-Press Enter at the title screen. Co-op starts automatically during gameplay.
-
-| Action | P1 | P2 | Xbox-style controller |
+| Action | Player 1 | Player 2 | Xbox-style controller |
 | --- | --- | --- | --- |
 | Move | WASD | Arrow keys | D-pad / left stick |
 | Attack | F | J | X |
 | Transform | G | K | B |
 | Jump | Space | L | A |
-| Start / pause | Enter | Enter | Start |
+| Start / map | Enter (shared) | Enter (shared) | Start |
 
-F6 saves, F8 loads, F9 pauses the emulator, F5 resets to the title, Esc closes.
-Save files include both players. Ordinary single-player emulator saves do not.
-Two stacked rows use the original gold HUD frame and POW/LIFE meter style.
-Blue P1 is on top, red P2 below. The fixed 320x254 output adds 30 pixels below
-the original playfield for the second row. Lives are shared. Both Ricks must gather at the same door before leaving. During the door
-entry sequence, left/right travel uses equal Y / different X; up/down travel
-uses equal X / different Y. Both emerge separately.
-The Rick nearest the exit leads the entry animation; the follower walks in
-before the room changes.
+**F6** saves, **F8** loads, **F9** pauses the emulator, **F5** resets to the
+title screen, and **Esc** closes the game.
 
-For BizHawk, see [setup](bizhawk/README.md).
+Blue P1 appears on the upper HUD row and red P2 on the lower row. Lives are
+shared. Both players must reach the same door to leave a room.
 
-The previously frozen QuickSave1 now loads directly: the core repairs the
-sound driver's lost bus request when it reaches the stalled wait loop. Your
-original save file does not need conversion.
+### Saves, updates, and uninstalling
 
-## Debug cheats
+The standalone game uses one save slot: `coop-save.state` in the game folder.
+F6 replaces that slot. Saves include both players and require this custom core;
+ordinary single-player emulator saves are not interchangeable.
 
-During gameplay, press **Genesis X** to kill the enemies in the room, including
-the boss. Death animations and room/stage progression run normally. It triggers
-once per press and is inactive on the map, in menus, and during door transitions.
-In the current BizHawk bindings this is **V** (P1) or **U** (P2); keyboard **X**
-is already Attack. In the standalone launcher, use **X** (P1), **O** (P2), or
-the Xbox-style controller's **Y** button.
+Close the game before installing an update into the same folder. Back up your
+save before updating; compatibility across prototype versions is not guaranteed.
+Uninstall through Windows Settings > Apps. Uninstalling preserves your imported
+ROM and save files; you can remove those remaining files yourself if desired.
 
-Press **Start** to open the native map, then **A+B+C together** to open cheats. On the default keyboard
-bindings this is **Enter**, then **F+G+Space** (or **J+K+L** for P2).
-Use Up/Down to select, C/Jump to apply, and Start to resume. On the stage row,
-Left/Right chooses stage 1?6. One-shot actions take effect when you resume.
+### Optional cheats
 
-The menu includes invincibility, infinite power, infinite shared lives, frozen
-timer, heal both, fill both power meters, damage either player, defeat both to
-test respawns, stage selection and restart stage. Toggles affect both Ricks and
-are included in saves. Resetting the game clears them. Damage tests turn off
-invincibility so their result is visible.
+During gameplay, **X** (P1), **O** (P2), or controller **Y** defeats the enemies
+in the current room, including bosses.
 
-## Agreed design
+Press **Enter / Start** to open the map, then **Attack + Transform + Jump**
+together (**F + G + Space**, or **J + K + L**) to open the cheat menu.
+Use Up/Down to select, Jump to apply, and Start to resume. Left/Right changes
+the stage selection from 1 to 6. One-shot actions take effect when play resumes.
+The menu includes invincibility, infinite power and shared lives, frozen time,
+healing, damage tests, stage selection, and stage restart. Toggles affect both
+players, persist in saves, and clear on reset.
 
-- Windows standalone launcher and BizHawk custom core.
-- Two independently controlled Ricks; recolored player two.
-- Separate health and transformation meters.
-- Both players must reach the same exit before changing rooms.
+## Troubleshooting
 
-## Verified and remaining work
+- **ROM missing or unsupported:** check the filename, location, and checksum
+  above. In File Explorer, show filename extensions to avoid a doubled extension.
+- **Emulator core cannot load:** reinstall, or extract the complete portable ZIP.
+  The launcher needs `engine/genesis_plus_gx_libretro.dll` beside it in that layout.
+- **Saving fails:** use the installer's default folder or a writable folder for
+  the portable version.
+- **An old save will not load:** use the same project version that created it,
+  or start a new game. Keep backups before trying a different version.
 
-Opening-room checks pass for independent movement, attacks by either Rick,
-separate damage, P2 transformation, death/respawn, and save/load replay. The first
-door blocks a lone player and carries both into the next room with separate
-health and power. The BizHawk adapter passes headless boot and save replay.
+Report problems in [GitHub Issues](https://github.com/Linn1024/splatterhouse3-coop/issues)
+with the release version, Windows version, and steps to reproduce them. Do not
+attach game ROMs.
 
-Sprite fixes keep P2 animation uploads out of P1 VRAM, recolor static punch
-frames as well as animated tiles, and restore the correct player context for
-held weapons. Controlled fixtures verify pickup and visible attachment of all
-three weapon types for either Rick. Debug tests cover the menu, all six stage
-loads, cheats, damage and shared-life respawns.
+## Prototype status
 
-This is not a completed campaign release. Later rooms, bosses, all door
-orientations, extended simultaneous-power combat, extended weapon/grapple interactions, exhausted lives
-and continues still need testing. P2 currently inherits P1's pose on room entry,
-so retaining different transformation forms across a door needs further work.
-Physical controllers and interactive BizHawk play have not been tested.
+This is an early prototype, not a fully tested campaign release. Opening-room
+checks cover movement, attacks, independent damage, transformation, respawn,
+saving/loading, and coordinated room exits. Later rooms and bosses, prolonged
+combat, weapon/grapple interactions, exhausted lives, and continues need more
+testing. P2 currently inherits P1's pose on room entry, so retaining different
+transformation forms across doors needs further work.
 
-## Development
+The optional [BizHawk adapter](bizhawk/README.md) has passed headless checks;
+interactive BizHawk play remains unverified.
 
-The original USA ROM remains unchanged. Supported SHA-256:
-`8c7737912cf948a606a683e32f4b6a0a4303215cdc99b39fbc5976c196c45710`.
+## Source and development
 
-`build.ps1` builds the modified Genesis Plus GX core with a Windows x64 MinGW
-toolchain. Pass `-ToolchainBin` to override the local default.
-`python tools/probe.py` boots the ROM headlessly and records local snapshots.
-Python tools require Pillow; disassembly tools additionally require Capstone.
+See [DEVELOPING.md](DEVELOPING.md) to build the game or installer and run checks.
+[RESEARCH.md](RESEARCH.md) describes the emulator hooks and known limitations.
+Binary packages include their matching source in `source.zip`, with the revision
+recorded in `SOURCE.txt`.
 
-Generate local test fixtures, then run the focused checks:
-
-```powershell
-python tools/prepare_fixtures.py
-python tools/verify_coop.py
-python tools/verify_attacks.py
-python tools/verify_saved_monster.py
-python tools/verify_transform.py
-python tools/verify_power_duration.py
-python tools/verify_mixed_forms.py
-python tools/verify_death.py
-python tools/verify_room_gate.py
-python tools/verify_door_animation.py
-python tools/verify_adapter.py
-python tools/verify_sprites.py
-python tools/verify_pickups.py
-python tools/verify_debug.py
-python tools/verify_debug_menu.py
-python tools/verify_debug_respawn.py
-```
-
-The exit fixture deliberately clears enemies; it tests door coordination.
-The attack checks separately defeat opening enemies through controller input.
-See [research notes](RESEARCH.md) for hooks, architecture and test scope.
-
-The engine was copied from `C:\TEMP2\aladdinGameCoop\engine`.
-See `engine/LICENSE.txt` and `THIRD_PARTY_NOTICES.md` for upstream notices.
-ROMs, local snapshots and generated diagnostics are not distribution assets.
+The modified Genesis Plus GX engine retains its
+[license and component notices](engine/LICENSE.txt), including noncommercial
+redistribution conditions. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+for attribution. Game ROMs are not distributed with this project.

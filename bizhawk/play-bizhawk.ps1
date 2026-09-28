@@ -1,8 +1,11 @@
+param(
+    [Parameter(Mandatory=$true)][string]$BizHawkDirectory,
+    [Parameter(Mandatory=$true)][string]$ConfigPath
+)
 $ErrorActionPreference = 'Stop'
-$exe = 'C:\TEMP2\Bizhawk\EmuHawk.exe'
-$configPath = Join-Path $PSScriptRoot 'bizhawk-splatterhouse.ini'
+$exe = Join-Path $BizHawkDirectory 'EmuHawk.exe'
 $rom = Join-Path (Split-Path $PSScriptRoot) 'Splatterhouse 3 (USA).md'
-$core = 'C:\TEMP2\Bizhawk\Libretro\Cores\Splatterhouse3Coop\splatterhouse_coop_libretro.dll'
+$core = Join-Path $BizHawkDirectory 'Libretro/Cores/Splatterhouse3Coop/splatterhouse_coop_libretro.dll'
 try {
     foreach ($path in @($exe, $configPath, $rom, $core)) {
         if (-not (Test-Path -LiteralPath $path)) { throw "Missing file: $path" }

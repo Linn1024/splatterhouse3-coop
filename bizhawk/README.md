@@ -1,53 +1,47 @@
-# Splatterhouse 3 Co-op in BizHawk
+﻿# Splatterhouse 3 Co-op in BizHawk
 
-The adapter follows the existing local Aladdin setup. It has been tested through
-a headless Libretro host; interactive BizHawk operation remains to be checked.
+The standalone installer is the easiest way to play. This optional adapter is
+for players who prefer BizHawk. It has passed headless boot and save/replay
+checks; interactive BizHawk play remains unverified.
 
-1. Follow the [Windows build and ROM instructions](../README.md#install-on-windows-64-bit).
-   Have a separate 64-bit BizHawk installation ready and close it before installing the core.
-2. From PowerShell in the project root, run the command below, replacing
-   `C:\Games\BizHawk` with the folder containing your `EmuHawk.exe`:
+## Install the custom core
+
+1. Install the project or extract its [portable release](../README.md#download-and-install).
+   Both include the adapter DLLs in `bizhawk/`. If using source code instead,
+   [build the project](../DEVELOPING.md#build-the-game) first.
+2. Have a separate 64-bit BizHawk installation ready and close it.
+3. Open PowerShell in the Splatterhouse 3 Co-op folder and run:
 
    ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File .\bizhawk\install.ps1 -BizHawkDirectory "C:\Games\BizHawk"
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\bizhawk\install.ps1 -BizHawkDirectory 'C:\Games\BizHawk'
    ```
 
-3. In BizHawk, select File > Open Advanced > Libretro.
-4. Choose `Libretro/Cores/Splatterhouse3Coop/splatterhouse_coop_libretro.dll`
-   and the supported `Splatterhouse 3 (USA).md` ROM.
-5. Configure both players under Config > Controllers.
+   Replace the example path with the folder containing your `EmuHawk.exe`.
+4. Start BizHawk and select **File > Open Advanced > Libretro**.
+5. Choose `Libretro/Cores/Splatterhouse3Coop/splatterhouse_coop_libretro.dll`
+   inside the BizHawk folder, then select your [supported ROM](../README.md#supported-rom).
+6. Configure both players under **Config > Controllers**.
 
-Keep `splatterhouse_engine.dll` beside the adapter. The install script copies
-only these two files into their own core directory.
+The install script copies only the two custom DLLs into their own core folder.
+Keep `splatterhouse_engine.dll` beside `splatterhouse_coop_libretro.dll`.
 
-Map RetroPad B to Attack, Y to Transform, A to Jump, and Start to Start/Pause.
-BizHawk's own save/load commands serialize both players through this adapter.
-Use the same custom core to load its saves.
+## Controls and saves
 
-See the [project README](../README.md) for the current prototype limitations.
+Map RetroPad **B** to Attack, **Y** to Transform, **A** to Jump, and **Start**
+to Start/Pause. Choose keyboard keys or controllers in BizHawk; no controller
+profile is included.
 
-## Pause/debug menu
+**Genesis X / RetroPad L** defeats enemies in the current room, including bosses.
+Press Start to show the map, then Attack + Transform + Jump together to open the
+cheat menu. Up/Down selects, Jump applies, Left/Right changes the selected stage,
+and Start resumes. See the [main guide](../README.md#optional-cheats).
 
-**Genesis X / RetroPad L** kills enemies in the current room during gameplay.
-The current keyboard bindings are **V** for P1 and **U** for P2. Keyboard **X**
-is bound to Attack; these controls are separate. Boss deaths retain native
-stage progression.
+BizHawk's own save/load commands serialize both players. Use the same custom
+core to load these saves; BizHawk saves and the standalone launcher's save file
+are not interchangeable.
 
-Press Start to show the native map, then the three Genesis action buttons together (Attack + Transform
-+ Jump). Up/Down selects, Jump applies, Left/Right changes the selected stage,
-and Start resumes. See the project README for the full cheat list. Use the
-controller configuration you set up in BizHawk. The developer's local shortcuts
-and controller profile are not included in this repository; configure both
-players yourself.
+## Display
 
-## Stable display size
-
-The adapter outputs a fixed 320x254 surface. The game retains its previous
-320x224 presentation, with 30 extra rows underneath for P2's original-style
-POW/LIFE panel. P1 is the upper row; blue/red labels identify the players.
+The adapter outputs a fixed 320x254 surface: the original 320x224 playfield plus
+30 rows for the second player's HUD. P1 is the upper row and P2 the lower row.
 The aspect ratio includes the extra height without stretching the playfield.
-Native 256- and 320-dot modes share this fixed surface, so menu/gameplay
-transitions do not resize BizHawk's window. Non-gameplay scenes leave the
-additional strip black. Save files retain the original native frame dimensions
-and remain compatible. `tools/verify_display_size.py`
-checks both native modes, stage transitions, debug, reset and save/load.

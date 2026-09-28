@@ -87,7 +87,7 @@ defeat-both and native respawns with two shared lives consumed.
 
 ## Frozen quick-save recovery
 
-The September 15 QuickSave1 has Z80 bus state 1 (running, no request) while the
+A regression fixture has Z80 bus state 1 (running, no request) while the
 main CPU is in the sound driver's BUSACK wait at `60C82`. Both previous builds
 loop there indefinitely. Changing only the bus request makes the scene resume.
 Co-op's longer frame permits an interrupt between the driver's request and poll;
@@ -172,9 +172,9 @@ matching Y and 32-pixel X spacing for rightward entry, plus the other three
 directions using injected direction values. It also checks
 that the next-room arrival stays 32 pixels apart and cinematic saves replay.
 
-## QuickSave1 static attack-art corruption
+## Static attack-art corruption
 
-The September 15 21:34 QuickSave1 reproduced a powered P2 attack assembled from
+A regression fixture reproduced a powered P2 attack assembled from
 normal Rick tiles. In addition to the private animated banks, the game uses a
 shared static-art region starting at tile 96. Loader table `7934` maps normal
 art to ROM `AC000` (63 tiles) and powered art to `AC7E0` (72 tiles). The queued
@@ -206,7 +206,7 @@ unchanged. The regression checks both axis arrangements in the native sprite
 builder; left/up/down checks use injected direction values rather than full
 room traversals.
 
-The 21:59 QuickSave1 contains a regular purple monster (type 46 hex) executing
+A regression fixture contains a regular purple monster (type 46 hex) executing
 its ordinary AI loop while retaining collision category 4. Native contacts
 explicitly skip that category. On re-entering that monster's ordinary AI at
 `13BF4`, co-op restores category 3 and removes its stale byte from the exclusion
@@ -224,9 +224,9 @@ pause flags can still be resumed normally. Both frontends use the same logic.
 Map checks verify frozen gameplay status, cheat toggles, saved overlays and
 return to gameplay; the native map was visually inspected.
 
-## QuickSave1: both real door orientations and both leaders
+## Both door orientations and either player leading
 
-`verify_user_doors.py` walks from the user's two-door QuickSave1 using controller
+`verify_user_doors.py` walks from a two-door regression fixture using controller
 inputs only. It tests the right-hand exit and upper exit with blue arriving first
 and red arriving first, keeping the partner away for 400 frames before joining.
 The source archive hash is checked afterward; the test never overwrites it.
@@ -251,7 +251,7 @@ from an in-progress entry save. Upward entry takes 96 frames in this fixture;
 rightward entry takes 23. Left/down rendering still has synthetic legacy-save
 coverage, not a claim of full native traversal coverage.
 
-## Map graphics preservation and non-gameplay rendering (QuickSaves 1-5)
+## Map graphics preservation and non-gameplay rendering (save-state regression fixtures)
 
 The native map overwrites enemy VRAM. Originally it was only available after
 clearing the room; allowing it during fights exposed that destructive reuse.
@@ -261,7 +261,7 @@ player update restores that memory and invalidates the pattern cache. Snapshot
 byte `308` marks the backup; saving/loading while paused preserves it without
 changing the save extension size.
 
-Old QuickSaves 2 and 3 already contain map fill (`E400` repeatedly at VRAM `6000`)
+Old map regression fixtures already contain map fill (`E400` repeatedly at VRAM `6000`)
 in enemy graphics. For that signature only, the first gameplay update rebuilds
 the room's native enemy graphics lists from ROM (`5610E` scripts, `55B1C` list
 pointers, `120000` compressed art). It does not reset enemy health, AI, palette,
@@ -289,9 +289,9 @@ tile handling. `verify_user_doors.py` covers both real door axes and either
 leader. Original save archives are unchanged. Mixed-form sprites, pickups,
 door gating, debug menu and fixed display geometry also pass their regressions.
 
-## QuickSave6: red stuck on an old room row
+## Stale player coordinates across floors
 
-QuickSave6 has red at Y=664 (`0298`) while the room camera starts at Y=1024
+A floor-transition fixture has P2 at Y=664 (`0298`) while the camera starts at Y=1024
 and blue stands at Y=1197. Native vertical clamps at `CEE0` / `D08C` keep the
 actor's existing high coordinate byte and clamp its low byte to `98`. That
 perpetuates the invalid row: Up/Down change fractional ground Y but animated Y
@@ -313,7 +313,7 @@ co-op regressions still pass.
 
 ## Third-floor initialization boundary
 
-The user's clarification places QuickSave6's onset at the beginning of floor 3.
+The stale-coordinate regression starts at the beginning of floor 3.
 A direct native floor-three room-load fixture reproduced the initialization gap:
 mode 4 phase 8 replaced the primary actor while `sh_ready` and P2's previous
 context survived. The earlier reset at `3002` only covered stage setup, not the
@@ -323,23 +323,23 @@ entry and leave its coordinates to be repaired later by the Y guard.
 The hook at `3112` now invalidates co-op readiness and in-flight actor/render
 context at every native room load. The normal first playable update initializes
 P2 from the newly loaded primary actor. Accepted door transitions retain their
-saved P2 health/power for the existing handoff. Old QuickSave6 still uses the
+saved P2 health/power for the existing handoff. The older fixture still uses the
 coordinate recovery; fresh floor loading no longer depends on it.
 
 `verify_floor_start.py` deliberately enters the native third-floor loader with
-QuickSave6's stale P2 context, bypassing the earlier stage-setup hook. It checks
+the fixture's stale P2 context, bypassing the earlier stage-setup hook. It checks
 that red initializes exactly 32 pixels beside blue at matching Y and can move
 vertically. This is a native-loader regression, not a full second-floor boss to
-third-floor playthrough. QS6 recovery, all four real door routes, door health/
+third-floor playthrough. Stale-coordinate recovery, all four real door routes, door health/
 power handoff, and reported sprite/map/story save regressions also pass.
 
 ## Genesis X: kill room cheat
 
 The shared frontend input handler sends debug command 10 on a rising edge of
 RetroPad L (Genesis X), only during unpaused gameplay. Existing Start/map/menu
-behavior takes precedence. The current BizHawk bindings map that control to V
-for P1 and U for P2; keyboard X remains the user's Attack binding. Standalone
-already maps Genesis X to keyboard X/O and Xbox Y. No bindings were changed.
+behavior takes precedence. BizHawk players choose their own bindings for
+Genesis X / RetroPad L. The standalone launcher maps Genesis X to keyboard
+X/O and Xbox Y.
 
 At the next safe player-update boundary, command 10 gives active native combat
 slots 19-22 a fatal native reaction (12104 table, reaction 3/action 2) and zero
@@ -440,7 +440,7 @@ against the original gut sheet, including flipped/recolored rows, its long
 tail and mid-attack save replay. `verify_user_doors.py` now rejects a follower
 changing color after the leader disappears; right/up doors with either leader
 pass. Legacy door-animation, mixed-form and reported sprite/map/story checks
-also pass. Builds are staged for the launcher; user saves are unchanged.
+also pass. The launcher uses the same engine fixes.
 
 
 ## Left-facing gut blast and door fade follow-up (QS2/QS3)
