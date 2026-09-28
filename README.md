@@ -2,9 +2,96 @@
 
 Playable prototype using the emulator-assisted approach from Aladdin Co-op.
 
+## Install on Windows (64-bit)
+
+This repository contains source code. **Code > Download ZIP does not include
+the executable, emulator DLLs, or game ROM.** Build the project once using the
+steps below. The standalone launcher does not require BizHawk or Python.
+
+### 1. Get the source and compiler
+
+Download [the source ZIP](https://github.com/Linn1024/splatterhouse3-coop/archive/refs/heads/main.zip)
+and extract it to a writable folder, for example `C:\Games\splatterhouse3-coop`.
+Open the extracted folder containing `build.ps1`; do not run from inside the ZIP.
+Alternatively, with Git installed:
+
+```powershell
+git clone https://github.com/Linn1024/splatterhouse3-coop.git
+cd splatterhouse3-coop
+```
+
+Install a **64-bit MinGW-w64 GCC toolchain**, such as a Win64/x86_64 ZIP from
+[WinLibs](https://winlibs.com/). Extract it, for example to `C:\Tools\mingw64`.
+Its `bin` folder must contain `gcc.exe`, `g++.exe`, and `mingw32-make.exe`.
+Use your actual extracted path in the next command.
+
+### 2. Build
+
+Open PowerShell in the project folder and run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -ToolchainBin "C:\Tools\mingw64\bin"
+```
+
+Always supply `-ToolchainBin`: the script's default points to the developer's
+local compiler. The execution-policy option applies only to this PowerShell
+process. A successful build creates:
+
+```text
+Splatterhouse3-Coop.exe
+engine/genesis_plus_gx_libretro.dll
+bizhawk/splatterhouse_coop_libretro.dll
+bizhawk/splatterhouse_engine.dll
+```
+
+### 3. Add your ROM
+
+Supply your own unmodified **Splatterhouse 3 (USA)** ROM. It must be exactly
+2,097,152 bytes and match this SHA-256:
+
+```text
+8c7737912cf948a606a683e32f4b6a0a4303215cdc99b39fbc5976c196c45710
+```
+
+Name it exactly `Splatterhouse 3 (USA).md` and put it beside the executable.
+Enable filename extensions in File Explorer to avoid a doubled extension.
+Renaming a different ROM does not make it compatible. Check the hash with:
+
+```powershell
+Get-FileHash -LiteralPath '.\Splatterhouse 3 (USA).md' -Algorithm SHA256
+```
+
+### 4. Launch
+
+Double-click `Splatterhouse3-Coop.exe`, or run:
+
+```powershell
+.\Splatterhouse3-Coop.exe
+```
+
+Press Enter at the title screen; player two joins automatically during gameplay.
+Keep `engine\genesis_plus_gx_libretro.dll` in its folder beside the executable.
+No shortcut is required or included. Saves are written to `coop-save.state`
+beside the executable, so keep the project in a folder you can write to.
+See the controls below, or the optional [BizHawk setup](bizhawk/README.md).
+
+### Troubleshooting
+
+- **Executable missing:** build first; GitHub's source ZIP contains no binaries.
+- **Compiler or make not recognized:** check `-ToolchainBin` points to the
+  folder containing all three compiler tools listed above.
+- **ROM missing or differs from the supported version:** check its location,
+  exact filename, size, and SHA-256. Extract compressed ROM files first.
+- **Unable to load the experimental emulator core:** check that
+  `engine\genesis_plus_gx_libretro.dll` exists and was built with the same
+  64-bit toolchain as the launcher. Keep the generated folder layout intact.
+- **Could not save game:** move the project to a writable folder.
+
 ## Play
 
-Run `Splatterhouse3-Coop.exe` or `Play Splatterhouse 3 Co-op.lnk`.
+### Launch and controls
+
+After installation, run `Splatterhouse3-Coop.exe`.
 Press Enter at the title screen. Co-op starts automatically during gameplay.
 
 | Action | P1 | P2 | Xbox-style controller |

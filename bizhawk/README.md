@@ -3,8 +3,15 @@
 The adapter follows the existing local Aladdin setup. It has been tested through
 a headless Libretro host; interactive BizHawk operation remains to be checked.
 
-1. Run `build.ps1` in the project root.
-2. Run `bizhawk/install.ps1 -BizHawkDirectory C:\TEMP2\Bizhawk`.
+1. Follow the [Windows build and ROM instructions](../README.md#install-on-windows-64-bit).
+   Have a separate 64-bit BizHawk installation ready and close it before installing the core.
+2. From PowerShell in the project root, run the command below, replacing
+   `C:\Games\BizHawk` with the folder containing your `EmuHawk.exe`:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\bizhawk\install.ps1 -BizHawkDirectory "C:\Games\BizHawk"
+   ```
+
 3. In BizHawk, select File > Open Advanced > Libretro.
 4. Choose `Libretro/Cores/Splatterhouse3Coop/splatterhouse_coop_libretro.dll`
    and the supported `Splatterhouse 3 (USA).md` ROM.
@@ -29,8 +36,9 @@ stage progression.
 Press Start to show the native map, then the three Genesis action buttons together (Attack + Transform
 + Jump). Up/Down selects, Jump applies, Left/Right changes the selected stage,
 and Start resumes. See the project README for the full cheat list. Use the
-project's **Play Splatterhouse 3 in BizHawk** shortcut to launch the installed
-core with the existing controller configuration.
+controller configuration you set up in BizHawk. The developer's local shortcuts
+and controller profile are not included in this repository; configure both
+players yourself.
 
 ## Stable display size
 
