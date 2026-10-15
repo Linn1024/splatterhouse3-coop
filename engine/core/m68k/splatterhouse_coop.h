@@ -336,6 +336,34 @@ static void sh_coop_hook(void) {
     }
     if(pc==0x2b6a || pc==0x2cae)sh_title_coop_label();
   }
+  /* Extend the original Options/LEVEL selector with a fifth choice. Native
+   * gameplay tables still receive their highest valid index (Game Master). */
+  if(sh_r8(1)==8 && (pc==0x4538 || pc==0x46ec)) {
+    unsigned level=(SH_DEBUG_FLAGS&16)?4:sh_r8(0xf02a);
+    level=(level+(pc==0x4538?1:4))%5;
+    sh_w8(0xf02a,level==4?3:level);
+    SH_DEBUG_FLAGS=(SH_DEBUG_FLAGS&~16u)|(level==4?16:0);
+    m68ki_jump(pc==0x4538?0x4552:0x4702);return;
+  }
+  /* Queue ULTRA HARD through the native tile-text buffer, including menu
+   * initialization and redraws. No ROM patch or frontend overlay is needed. */
+  if(sh_r8(1)==8 && (SH_DEBUG_FLAGS&16) &&
+     ((pc==0xf0c && m68k.dar[12]==0x50a6) || pc==0x4994)) {
+    const char *label="ULTRA HARD ";unsigned i,offset=sh_r16(0x72),a=0x460e + offset;
+    sh_w16(a,48+1024*((sh_r8(0x47)&2)?2:1));sh_w16(a+2,11);
+    /* Keep the longer label readable where the animated mask overlaps it. */
+    for(i=0;i<11;i++)sh_w16(a+4+i*2,0xc100+(unsigned char)label[i]);
+    sh_w16(a+26,65535);sh_w16(0x72,offset+26);
+    if(pc==0xf0c)m68ki_jump(0xf74);
+    return;
+  }
+  if(sh_ready && (SH_DEBUG_FLAGS&16)) {
+    /* Double the final native damage after powered-form protection, before
+     * subtraction and the game's own lethal-hit/death handling. */
+    if(pc==0x23d54 || pc==0x23d60)m68k.dar[0]=(m68k.dar[0]&0xffff0000u)|((m68k.dar[0]&65535)*2);
+    /* Native powered meter consumes one point per 60 updates; use 30. */
+    if(pc==0xb74e)m68k.dar[0]=(m68k.dar[0]&0xffff0000u)|30;
+  }
   /* Infer the latch for older saves captured partway into a doorway. */
   if(sh_transition && sh_r8(2)==10 && sh_r16(0xc2)>=1 && sh_r16(0xc2)<=4)SH_DOOR_ENTRY=1;
 

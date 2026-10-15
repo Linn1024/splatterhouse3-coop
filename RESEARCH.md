@@ -468,6 +468,36 @@ files are unchanged. Older QS2 contains an already-built sprite table; its
 normal next SAT rebuild picks up the corrected left-facing metadata.
 
 
+## Ultra Hard difficulty in the native Options menu
+
+The original Options/LEVEL selector now has five choices: Easy, Normal,
+Difficult, Game Master, Ultra Hard. Hooks 4538/46EC extend left/right cycling
+without changing native control/music/sound/exit behavior. Ultra is stored in
+saved metadata bit 16; the native difficulty byte F02A stays at 3, its highest
+valid table index (Game Master). Choosing any original level clears the bit.
+
+At F0C, the native GAME MASTER text request becomes an 11-character ULTRA HARD
+request in the game's own tile-text queue. The options update at 4994
+refreshes it after native menu setup, keeping it intact on reentry.
+The label has priority over the animated mask so all its letters stay visible.
+No ROM file modification or frontend text overlay is used. The pause menu
+retains its original 12 entries; difficulty selection is only in native Options.
+
+At native enemy damage subtraction 23D54/23D60, Ultra doubles D0 after the
+powered-form reduction, preserving native hit reactions, HP clamping and death.
+At B74E it changes the native power-depletion interval from 60 to 30 updates.
+Both hooks act on the installed player context. Stage changes preserve the
+selection; full reset clears it. The save-state size/layout is unchanged.
+
+Build, existing debug-menu/power-duration/display-size checks,
+verify_ultra_hard.py and verify_difficulty_menu.py pass. Native menu tests
+cover all five choices in both directions, wraparound, save/load, menu reentry,
+starting a campaign at native Game Master with Ultra active, and reset.
+Actual enemy hits double for both players and power consumption is 8 versus
+4 points per 240 powered updates. Lethal hits follow the native death path.
+Native menu and reentry screenshots were inspected.
+
+
 ## Independent P2 appearance materials
 
 The normal COOP OPTIONS submenu is the fourth native title entry, after

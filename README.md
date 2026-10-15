@@ -48,6 +48,16 @@ Get-FileHash -LiteralPath '.\Splatterhouse 3 (USA).md' -Algorithm SHA256
 
 ## Controls
 
+### Ultra Hard
+
+From the title screen, open **OPTIONS** and select **LEVEL**. Press Right past
+**GAME MASTER** to choose **ULTRA HARD**, then exit Options and start the game.
+Ultra Hard uses Game Master difficulty, doubles enemy-hit damage to both Ricks,
+and drains powered form's meter twice as fast. Choose any original level to
+turn it off. The selection persists through stages and save/load; a full reset
+returns to the original defaults.
+
+
 Both players can use one keyboard. Two Xbox-compatible controllers are also
 supported; controller hardware has not yet been tested extensively.
 
