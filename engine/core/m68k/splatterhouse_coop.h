@@ -3,11 +3,19 @@
 extern unsigned char zstate;
 extern void gen_zbusreq_w(unsigned int data,unsigned int cycles);
 extern unsigned char work_ram[65536], vram[65536], cram[128], reg[32];
+static void sh_appearance_invalidate(void);
 static unsigned sh_enabled, sh_ready, sh_second, sh_render_second, sh_frames;
 static unsigned sh_enemy_active, sh_target, sh_collision_repeat;
 static unsigned sh_transition, sh_saved_hp, sh_saved_power;
 static unsigned sh_camera_x, sh_camera_active;
 static unsigned sh_render_done,sh_render_resume,sh_render_index;
+/* The original frame budget was sized for one Rick. Charge injected partner
+ * updates, sprite building and repeated contact tests at a reduced cost so
+ * those additions do not consume the whole native enemy-update budget.
+ * Keep CPU time monotonic; VDP/audio and original work retain native timing. */
+static unsigned sh_coop_instruction_cycles(unsigned cycles) {
+  return sh_enabled && (sh_second || sh_render_second || sh_collision_repeat)?cycles/4:cycles;
+}
 static unsigned sh_regs[16], sh_input[3];
 static unsigned char sh_players[2][65536], sh_tiles[2][0xc00];
 /* Reserved snapshot metadata, outside every installed game-RAM range. */
@@ -172,10 +180,7 @@ __declspec(dllexport) unsigned sh_sprite_flags(unsigned index,unsigned attr) {
   return sh_enabled && scene && (sh_ready || sh_transition) && index<80 && (attr&0x6000)==0x2000 ? SH_SAT_LIVE(index):0;
 }
 __declspec(dllexport) unsigned char *sh_recolor_row(unsigned char *source,unsigned flags) {
-  static unsigned char pixels[8];unsigned x,ink;
-  if(!(flags&3))return source;
-  for(x=0;x<8;x++){ink=source[x];pixels[x]=(ink==10)?14:(ink==11 || ink==12)?15:(ink==13)?1:ink;}
-  return pixels;
+  return source; /* P2 materials are applied after native sprite priority. */
 }
 __declspec(dllexport) unsigned char *sh_sprite_row(unsigned attr,unsigned row,unsigned flags) {
   static unsigned char pixels[8];unsigned x,y,ink,off,name=attr&2047,source=0;
@@ -194,12 +199,13 @@ __declspec(dllexport) unsigned char *sh_sprite_row(unsigned attr,unsigned row,un
     unsigned sx=(attr&0x800)?7-x:x;
     off=y*4+sx/2;
     ink=((source?m68k_read_pcrelative_8(source+off):sh_tiles[1][(name*32+off)^1])>>((sx&1)?0:4))&15;
-    pixels[x]=(flags&3)?((ink==10)?14:(ink==11 || ink==12)?15:(ink==13)?1:ink):ink;
+    pixels[x]=ink;
   }
   return pixels;
 }
-__declspec(dllexport) void sh_coop_enable(unsigned v) { sh_enabled=v;sh_ready=sh_second=sh_render_second=sh_frames=sh_enemy_active=sh_target=sh_collision_repeat=sh_transition=sh_camera_active=sh_render_done=sh_render_resume=sh_render_index=0; memset(sh_players,0,sizeof(sh_players));memset(sh_tiles,0,sizeof(sh_tiles));SH_SAT_SCHEMA=1; }
+__declspec(dllexport) void sh_coop_enable(unsigned v) { sh_appearance_invalidate();sh_enabled=v;sh_ready=sh_second=sh_render_second=sh_frames=sh_enemy_active=sh_target=sh_collision_repeat=sh_transition=sh_camera_active=sh_render_done=sh_render_resume=sh_render_index=0; memset(sh_players,0,sizeof(sh_players));memset(sh_tiles,0,sizeof(sh_tiles));SH_SAT_SCHEMA=1; }
 __declspec(dllexport) unsigned sh_coop_paused(void) {return sh_ready && ((sh_r8(1)==11 && sh_r8(2)==3) || (sh_r8(9)&128));}
+#include "splatterhouse_appearance.h"
 __declspec(dllexport) unsigned sh_coop_ready(void) { return sh_ready; }
 __declspec(dllexport) unsigned sh_coop_sprite_budget(void) { return sh_enabled && (sh_ready || sh_transition); }
 __declspec(dllexport) unsigned sh_coop_debug_flags(void) { return SH_DEBUG_FLAGS; }
@@ -306,7 +312,7 @@ __declspec(dllexport) int sh_coop_restore(const void *data,unsigned n) {
   sh_target=v[6];sh_collision_repeat=v[7];sh_transition=v[8];sh_saved_hp=v[9];sh_saved_power=v[10];sh_camera_x=v[11];sh_camera_active=v[12];
   sh_render_done=v[13];sh_render_resume=v[14];sh_render_index=v[15];
   memcpy(sh_regs,s->regs,sizeof(sh_regs));memcpy(sh_input,s->input,sizeof(sh_input));
-  memcpy(sh_players,s->players,sizeof(sh_players));memcpy(sh_tiles,s->tiles,sizeof(sh_tiles));
+  memcpy(sh_players,s->players,sizeof(sh_players));memcpy(sh_tiles,s->tiles,sizeof(sh_tiles));sh_appearance_invalidate();
   if(SH_SAT_SCHEMA!=1) {
     unsigned i;
     for(i=0;i<80;i++) {
@@ -322,6 +328,14 @@ __declspec(dllexport) int sh_coop_restore(const void *data,unsigned n) {
 static void sh_coop_hook(void) {
   unsigned pc=REG_PC;
   if(!sh_enabled)return;
+  if(sh_r8(1)==1) {
+    /* Keep the original title entries and add a fourth native text row. */
+    if(pc==0x2c46) {
+      if(sh_r16(0x64)>3)sh_w16(0x64,3);
+      m68ki_jump(0x2c5a);return;
+    }
+    if(pc==0x2b6a || pc==0x2cae)sh_title_coop_label();
+  }
   /* Infer the latch for older saves captured partway into a doorway. */
   if(sh_transition && sh_r8(2)==10 && sh_r16(0xc2)>=1 && sh_r16(0xc2)<=4)SH_DOOR_ENTRY=1;
 
@@ -555,7 +569,11 @@ static void sh_coop_hook(void) {
       SH_SAT_BUILD((offset-0x5262)/8)=flags;
     }
   }
-  if(pc==0x7bdc && (sh_ready || sh_transition))memcpy(&SH_SAT_LIVE(0),&SH_SAT_BUILD(0),80);
+  if(pc==0x7bdc && (sh_ready || sh_transition)) {
+    memcpy(&SH_SAT_LIVE(0),&SH_SAT_BUILD(0),80);
+    /* Door/entrance scripts rebuild sprites without advancing sh_frames. */
+    sh_appearance_invalidate();
+  }
 }
 
 

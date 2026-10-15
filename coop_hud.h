@@ -11,7 +11,7 @@ inline std::vector<uint32_t> coopDisplayFrame(const std::vector<uint32_t>& pixel
   out[y*coopDisplayWidth+x]=pixels[(y*h/coopGameHeight)*w+x*w/coopDisplayWidth];
  return out;
 }
-inline void drawCoopHud(std::vector<uint32_t>& pixels,unsigned w,unsigned h,const unsigned *s) {
+inline void drawCoopHud(std::vector<uint32_t>& pixels,unsigned w,unsigned h,const unsigned *s,uint32_t p2Color=0xe05242) {
  if(!s[0] || h<coopDisplayHeight || w<256 || pixels.size()!=w*h)return;
  // Reuse the native frame's gold border, lettering and meter surrounds.
  // Native gameplay is 256 pixels wide, normalized by the display composer.
@@ -34,7 +34,7 @@ inline void drawCoopHud(std::vector<uint32_t>& pixels,unsigned w,unsigned h,cons
    box(48,205+dy+y,std::min(s[8+p],80u),1,power[y]);
    box(168,205+dy+y,(std::min(s[6+p],256u)+3)/4,1,life[y]);
   }
-  uint32_t color=p?0xe05242:0x529be0;
+  uint32_t color=p?p2Color:0x529be0;
   glyph(10,205+dy,"110101110100100",color);
   glyph(14,205+dy,p?"110001010100111":"010110010010111",color);
  }

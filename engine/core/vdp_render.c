@@ -3820,9 +3820,29 @@ extern unsigned sh_coop_sprite_budget(void);
 extern unsigned char *sh_sprite_row(unsigned attr, unsigned row, unsigned flags);
 extern unsigned sh_sprite_flags(unsigned index, unsigned attr);
 extern unsigned char *sh_recolor_row(unsigned char *source, unsigned flags);
+extern unsigned sh_coop_appearance_rgb(unsigned ink,unsigned fallback);
+extern void sh_coop_material_prepare(void);
+extern unsigned sh_coop_material_ink(unsigned x,unsigned y,unsigned ink);
+/* Scanline-only ownership; rebuilt on every render, including after a load. */
+static uint8 sh_material_line[0x200];
+static int sh_material_line_number=-1;
+void sh_render_material_invalidate(void) {sh_material_line_number=-1;}
+#define SH_DRAW_SPRITE(TABLE,BASE) \
+  for(i=0;i<8;i++) { \
+    unsigned ink=*src++,old=lb[i]; \
+    if(ink&15) { \
+      temp=ink|(old<<8);lb[i]=TABLE[temp|atex]; \
+      if(!(old&128) && (lb[i]&63)==((ink|atex)&63)) \
+        sh_material_line[lb-linebuf[BASE]+i]=(object_info->sh_flags&3)?sh_coop_material_ink(xpos+column*8+i+128,v_counter+128,ink):0; \
+      status|=((temp&0x8000)>>10); \
+    } \
+  }
 
 void render_obj_m5(int line)
 {
+  memset(sh_material_line,0,sizeof(sh_material_line));
+  sh_material_line_number=v_counter;
+  sh_coop_material_prepare();
   int i, column;
   int xpos, width;
   int pixelcount = 0;
@@ -3910,7 +3930,7 @@ void render_obj_m5(int line)
         temp = attr | ((name + s[column]) & 0x07FF);
         src = sh_sprite_row(temp, v_line, object_info->sh_flags);
         if (!src) src = sh_recolor_row(&bg_pattern_cache[(temp << 6) | (v_line)], object_info->sh_flags);
-        DRAW_SPRITE_TILE(8,atex,lut[1])
+        SH_DRAW_SPRITE(lut[1],0)
       }
     }
 
@@ -3934,6 +3954,9 @@ void render_obj_m5(int line)
 
 void render_obj_m5_ste(int line)
 {
+  memset(sh_material_line,0,sizeof(sh_material_line));
+  sh_material_line_number=v_counter;
+  sh_coop_material_prepare();
   int i, column;
   int xpos, width;
   int pixelcount = 0;
@@ -4023,7 +4046,7 @@ void render_obj_m5_ste(int line)
         temp = attr | ((name + s[column]) & 0x07FF);
         src = sh_sprite_row(temp, v_line, object_info->sh_flags);
         if (!src) src = sh_recolor_row(&bg_pattern_cache[(temp << 6) | (v_line)], object_info->sh_flags);
-        DRAW_SPRITE_TILE(8,atex,lut[3])
+        SH_DRAW_SPRITE(lut[3],1)
       }
     }
 
@@ -4936,6 +4959,9 @@ void blank_line(int line, int offset, int width)
 
 void remap_line(int line)
 {
+  /* Blank/border and register-triggered remaps may bypass sprite rendering.
+   * A previous scanline's material markers must not recolor those pixels. */
+  int sh_material_valid=(line==sh_material_line_number);
   /* Line width */
   int width = bitmap.viewport.w + 2*bitmap.viewport.x;
 
@@ -4987,7 +5013,38 @@ void remap_line(int line)
     {
       do
       {
-        *dst++ = pixel[*src++];
+        unsigned index=*src++,material=sh_material_valid?sh_material_line[src-linebuf[0]-1]:0,ink=material&15;
+        PIXEL_OUT_T color=pixel[index];
+        if(ink && (index&15)==ink && (index&0x30)==0x10) {
+          unsigned legacy=ink==10?14:ink==11 || ink==12?15:ink==13?1:ink;
+          unsigned rgb=sh_coop_appearance_rgb(material,0);
+          color=pixel[(index&0xf0)|legacy];
+          if(rgb) {
+            /* Respect the native palette fade, including a fully black door
+             * transition. Material colors never brighten a faded actor. */
+            static const unsigned full[]={0,0,255,205,139,65,255,205,172,65,139,98,65,32};
+            unsigned native=pixel[index],r,g,b,brightness,fade;
+#if defined(USE_32BPP_RENDERING)
+            r=(native>>16)&255;g=(native>>8)&255;b=native&255;
+#elif defined(USE_15BPP_RENDERING)
+            r=((native>>10)&31)*255/31;g=((native>>5)&31)*255/31;b=(native&31)*255/31;
+#else
+            r=((native>>11)&31)*255/31;g=((native>>5)&63)*255/63;b=(native&31)*255/31;
+#endif
+            brightness=r>g?r:g;if(b>brightness)brightness=b;
+            fade=ink<14 && full[ink]?brightness*255/full[ink]:255;
+            if(fade>255)fade=255;
+            rgb=(((((rgb>>16)&255)*fade/255)<<16)|((((rgb>>8)&255)*fade/255)<<8)|((rgb&255)*fade/255));
+#if defined(USE_32BPP_RENDERING)
+            color=rgb;
+#elif defined(USE_15BPP_RENDERING)
+            color=((rgb>>9)&0x7c00)|((rgb>>6)&0x3e0)|((rgb>>3)&31);
+#else
+            color=((rgb>>8)&0xf800)|((rgb>>5)&0x7e0)|((rgb>>3)&31);
+#endif
+          }
+        }
+        *dst++ = color;
       }
       while (--width);
     }

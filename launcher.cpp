@@ -13,11 +13,14 @@
 #include "engine/libretro/libretro-common/include/libretro.h"
 #include "coop_hud.h"
 #include "debug_menu.h"
+#include "appearance_menu.h"
 
 
 struct Core {
  unsigned (*ready)(),(*paused)(),(*debug_flags)(),(*level)(),(*menu_get)();
  int (*debug)(unsigned),(*debug_stage)(unsigned);void (*menu_set)(unsigned);
+ unsigned (*appearance_get)(),(*appearance_menu_get)(),(*appearance_available)(),(*font_row)(unsigned,unsigned),(*preview_ink)(unsigned,unsigned),(*appearance_rgb)(unsigned,unsigned);
+ void (*appearance_set)(unsigned),(*appearance_menu_set)(unsigned);
  unsigned (*state_size)(); int (*save)(void*,unsigned),(*restore)(const void*,unsigned);
  HMODULE dll;
  void (*init)(),(*run)(),(*deinit)();
@@ -93,7 +96,9 @@ void audioSample(int16_t l,int16_t r){int16_t p[]={l,r};audioBatch(p,1);}
 void inputPoll(){}
 int16_t inputState(unsigned port,unsigned device,unsigned index,unsigned id) {
  if(port>1||device!=RETRO_DEVICE_JOYPAD)return 0;
- return id==RETRO_DEVICE_ID_JOYPAD_MASK?pads[port]:((pads[port]>>id)&1);
+ unsigned buttons=pads[port];
+ if(!port && (core.appearance_available()&2))buttons|=pads[1];
+ return id==RETRO_DEVICE_ID_JOYPAD_MASK?buttons:((buttons>>id)&1);
 }
 void readInputs() {
  pads[0]=pads[1]=0;
@@ -133,7 +138,7 @@ void paint(HDC dc) {
  int w=r.right-24,h=w*3*coopDisplayHeight/(4*coopGameHeight);
  if(h>r.bottom-110){h=std::max(1L,r.bottom-110);w=h*4*coopGameHeight/(3*coopDisplayHeight);}
  if(!pixels.empty()) {
-  auto output=coopDisplayFrame(pixels,width,height);drawCoopHud(output,coopDisplayWidth,coopDisplayHeight,details);menu.draw(output,coopDisplayWidth,coopDisplayHeight,core.debug_flags());
+  auto output=coopDisplayFrame(pixels,width,height);drawCoopHud(output,coopDisplayWidth,coopDisplayHeight,details,core.appearance_rgb(10,0xe05242));menu.draw(output,coopDisplayWidth,coopDisplayHeight,core.debug_flags());AppearanceMenu::draw(core,output,coopDisplayWidth,coopDisplayHeight,menu.debug);
   BITMAPINFO b={};b.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);b.bmiHeader.biWidth=coopDisplayWidth;
   b.bmiHeader.biHeight=-(int)coopDisplayHeight;b.bmiHeader.biPlanes=1;b.bmiHeader.biBitCount=32;
   SetStretchBltMode(dc,COLORONCOLOR);
@@ -216,7 +221,7 @@ int main(int argc,char **argv) {
  LOAD(init);LOAD(run);LOAD(deinit);LOAD(set_environment);LOAD(set_video_refresh);LOAD(set_audio_sample);LOAD(set_audio_sample_batch);LOAD(set_input_poll);LOAD(set_input_state);LOAD(set_controller_port_device);LOAD(load_game);LOAD(get_system_av_info);LOAD(unserialize);LOAD(serialize);LOAD(serialize_size);
 #undef LOAD
 #define LOAD(name) core.name=(decltype(core.name))GetProcAddress(core.dll,"sh_coop_" #name);if(!core.name)return fail("Missing co-op export: " #name);
- LOAD(debug);LOAD(debug_flags);LOAD(debug_stage);LOAD(level);LOAD(menu_get);LOAD(menu_set);LOAD(paused);LOAD(ready);LOAD(enable);LOAD(status);LOAD(state_size);LOAD(save);LOAD(restore);
+ LOAD(appearance_get);LOAD(appearance_set);LOAD(appearance_menu_get);LOAD(appearance_menu_set);LOAD(appearance_available);LOAD(font_row);LOAD(preview_ink);LOAD(appearance_rgb);LOAD(debug);LOAD(debug_flags);LOAD(debug_stage);LOAD(level);LOAD(menu_get);LOAD(menu_set);LOAD(paused);LOAD(ready);LOAD(enable);LOAD(status);LOAD(state_size);LOAD(save);LOAD(restore);
 #undef LOAD
  core.set_environment(environment);core.set_video_refresh(video);core.set_audio_sample(audioSample);core.set_audio_sample_batch(audioBatch);core.set_input_poll(inputPoll);core.set_input_state(inputState);core.init();
  retro_game_info game={"Splatterhouse 3 (USA).md",rom.data(),rom.size(),nullptr};if(!core.load_game(&game))return fail("ROM could not be loaded.");
@@ -237,7 +242,8 @@ int main(int argc,char **argv) {
   if(!running)break;
   if(paused&&!testFrames){Sleep(15);QueryPerformanceCounter(&now);deadline=double(now.QuadPart)/freq.QuadPart;continue;}
   readInputs();sound.clear();
-  if(!core.ready()){menu=DebugMenu{};menu.previous=pads[0]|pads[1];core.run();}
+  if(AppearanceMenu::update(core,pads[0]|pads[1],menu.debug)){menu.previous=pads[0]|pads[1];if(audioDevice)waveOutReset(audioDevice);}
+  else if(!core.ready()){menu=DebugMenu{};menu.previous=pads[0]|pads[1];core.run();}
   else if(!menu.update(pads[0]|pads[1],core.debug,core.debug_stage,core.level(),core.paused()))core.run();
   else if(audioDevice)waveOutReset(audioDevice);
   core.menu_set(menu.pack());
@@ -250,7 +256,7 @@ int main(int argc,char **argv) {
  }
  if(testFrames) {
   pixels=coopDisplayFrame(pixels,width,height);width=coopDisplayWidth;height=coopDisplayHeight;
-  drawCoopHud(pixels,width,height,details);menu.draw(pixels,width,height,core.debug_flags());
+  drawCoopHud(pixels,width,height,details,core.appearance_rgb(10,0xe05242));menu.draw(pixels,width,height,core.debug_flags());AppearanceMenu::draw(core,pixels,width,height,menu.debug);
   unsigned status[10];core.status(status);FILE*f=fopen("diagnostics/launcher-status.txt","w");
   if(f){for(auto v:status)fprintf(f,"%u ",v);fprintf(f,"\n");for(auto v:details)fprintf(f,"%u ",v);fclose(f);}
   BITMAPFILEHEADER bf={};BITMAPINFOHEADER bi={};bi.biSize=sizeof(bi);bi.biWidth=width;bi.biHeight=-(int)height;bi.biPlanes=1;bi.biBitCount=32;bi.biSizeImage=pixels.size()*4;bf.bfType=0x4d42;bf.bfOffBits=sizeof(bf)+sizeof(bi);bf.bfSize=bf.bfOffBits+bi.biSizeImage;

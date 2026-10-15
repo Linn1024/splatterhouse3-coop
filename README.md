@@ -65,6 +65,23 @@ title screen, and **Esc** closes the game.
 Blue P1 appears on the upper HUD row and red P2 on the lower row. Lives are
 shared. Both players must reach the same door to leave a room.
 
+### Player 2 appearance
+
+Select **COOP OPTIONS** on the main title menu and press Start. Either player
+can use Up/Down to choose **CLOTHES**, **MASK**, or **SKIN**, and Left/Right to
+cycle that part's color. The selected row turns pale white, with the same
+shadowed lettering as native Options. Attack or Start returns to the previous
+screen. The menu shows Rick with your selected colors and native pale highlights.
+You can also open it from original **OPTIONS** with
+**Transform** (Genesis B; keyboard **G** or **K**).
+
+Each part offers Original, Teal, Magenta, Tan, Red, Blue, Purple, Green, Gray,
+and Gold. To match the reference costume, choose **Teal clothes, Magenta mask,
+and Tan skin**. Original keeps P2's default red clothes and native mask/skin.
+Choices apply to P2's normal and powered forms and the HUD label, are included
+in save states, and reset to defaults with a full game reset. Older saves use
+the default appearance. P1 and enemy colors stay unchanged.
+
 ### Saves, updates, and uninstalling
 
 The standalone game uses one save slot: `coop-save.state` in the game folder.

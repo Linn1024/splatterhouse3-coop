@@ -12,3 +12,5 @@ __pycache__/
 
 /backups/
 /dist/
+
+/bizhawk/bizhawk-splatterhouse.ini.bak

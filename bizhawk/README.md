@@ -85,6 +85,23 @@ are not interchangeable.
 Back up saves before changing core versions; compatibility across prototype
 versions is not guaranteed.
 
+For separate P2 clothes, mask, and skin colors, select **COOP OPTIONS** on the
+main title menu and press Start. You can also open it from native **OPTIONS**
+with **Transform (RetroPad Y / Genesis B)**.
+The **COOP OPTIONS** menu accepts either controller. Up/Down selects a part,
+Left/Right changes its color, and Attack or Start goes back. Teal clothes,
+Magenta mask, and Tan skin match the reference costume. Settings and the menu
+state are saved with both players.
+
+The local **Play Splatterhouse 3 in BizHawk** shortcut uses
+`play-bizhawk.ps1`, which defaults to the sibling `C:\TEMP2\Bizhawk` installation
+and the project's local controller configuration. For another installation,
+pass `-BizHawkDirectory` and optionally `-ConfigPath`. It updates both core DLLs
+before launch and backs up the configuration to `.ini.bak`. If an older game
+holds an engine DLL open, the launcher keeps it under a unique `.running-*.dll`
+name and installs the update for the new window. Existing windows keep their
+loaded core until closed.
+
 ## Updates and troubleshooting
 
 Close BizHawk, update or rebuild the project, rerun `bizhawk\install.ps1`, and

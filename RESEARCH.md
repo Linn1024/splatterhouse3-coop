@@ -466,3 +466,189 @@ regressions pass. The installed core matched the previous build at diagnosis;
 these were missing cases in that fix, not a failure to install it. User save
 files are unchanged. Older QS2 contains an already-built sprite table; its
 normal next SAT rebuild picks up the corrected left-facing metadata.
+
+
+## Independent P2 appearance materials
+
+The normal COOP OPTIONS submenu is the fourth native title entry, after
+START, OPTIONS and PASSWORD. Hook `2C46` extends the original selector's lower
+bound to row 3; `2B6A` and `2CAE` queue the fourth label through the native text
+buffer. Start enters the submenu and returning keeps its title cursor selected.
+It also opens with Transform from native Options. The map has no appearance
+entry or Transform shortcut; loading an old open map-overlay save closes it
+without leaking the held menu input into gameplay.
+`appearance_menu.h` is shared by both hosts; it uses the ROM's
+compressed native font (block 79, `0x15ae1e`) and native idle-pose sprite pieces,
+with a live preview. Inputs from either pad are consumed through release.
+The native font's shadow ink is rendered in dark red; the selected row's label
+and value are pale white, while other rows use native yellow.
+
+The preview uses native pose 95 and its three SAT pieces. Its tiles cross
+384-byte DMA segments, each preceded by a two-byte command; the preview reads
+the frame's segment-pointer table rather than assuming contiguous image data.
+`verify_preview_art.py` compares every preview pixel against actual native
+VRAM after the game's DMA and SAT assembly. `verify_appearance_title.py` checks
+the fourth entry, P2 navigation, native Options/Password routing, selection,
+shadow pixels, return input handling and highlights across every skin color.
+
+Rick palette inks 2-5 are shared by the mask and skin highlights; 6-9 are
+skin midtones and 10-13 clothes. A derived silhouette assembled from the live
+P2 sprite chain identifies the largest eight-connected gray surface as the
+mask, preserving diagonally joined face sections in powered jump poses.
+Only that exact surface is recolored: separate temple, neck and chest glints
+belong to skin even when they fall inside the face's bounding rectangle.
+Other gray highlights follow skin. This prevents a magenta mask from tinting
+the arms or the nearby skin glints.
+The two brightest skin-highlight inks retain their native pale colors when
+changing skin hue, including purple and the reference costume's tan.
+The derived mask is invalidated on reset/load and rebuilt as animations change.
+It reads ownership through `sh_sprite_flags`, matching the actual renderer's
+scene/palette filter rather than trusting leftover SAT metadata. Reported QS1
+contained active palette-zero entries with stale P2 flags; including their
+zero positions put the real actor outside the material canvas and recolored
+body highlights as mask. Native/shared entrance pieces now read the same VRAM
+patterns used by rendering when the private sprite-row function returns null.
+Every native SAT commit invalidates the derived mask, even during entrance and
+door scripts that do not advance the co-op frame counter. Its cache also checks
+the actual VRAM SAT, native player tiles, private P2 tiles and ownership bytes:
+DMA can update these after the CPU built the sprite list. Without this check,
+the mask lagged a moving entrance sprite by one pixel. The silhouette follows
+native SAT order and keeps the first nontransparent pixel, so behind pieces
+cannot overwrite the visible face. Scanline material
+markers are valid only for the scanline actually rendered and are cleared on
+snapshot/ownership invalidation.
+`engine/core/m68k/splatterhouse_appearance.h` defines independent material
+choices, including teal clothes/magenta mask/tan skin for the reference costume.
+The renderer records P2 ownership only for sprite pixels that win native
+priority, then applies RGB material shades during scanline output. It retains
+native fade brightness, transparent ink zero, black outlines, and shadow ink.
+P1, enemies and background palettes are never rewritten. Existing P2 sprite
+ownership also covers native grabbing pieces, powered art and door sprites.
+The P2 HUD label follows the selected clothes color.
+
+Appearance schema/choices occupy reserved snapshot bytes `0x314-0x317`;
+menu schema/state use `0x318`, `0x31a-0x31d`. The version-1 co-op snapshot size
+and outer host save layout are unchanged. Missing schemas mean default red
+clothes/native mask and skin and a closed menu. Derived font and scanline
+buffers are reconstructed rather than saved.
+
+`tools/verify_appearance.py` checks native-menu access, P2 controls, independent
+choices, both-direction wrapping, held Start consumption, preview captures,
+gameplay pixel isolation, disjoint material regions, skin-highlight preservation,
+powered form, old snapshot defaults, removed map access and deterministic saved replay. The
+existing sprite, adapter, difficulty and cheat-menu regressions also pass.
+These checks cover emulator inputs, not physical controller hardware.
+
+`tools/verify_appearance_replay.py` uses the archived reported QS1 (or a path
+argument), preserving its source bytes. It compares mask-only color changes
+over 240 moving/attacking frames plus the first 180 cold-start frames: 421
+comparisons, covering ten normal poses in QS1. The first native control replay
+is discarded to settle native lazy tile-cache reconstruction after loading;
+the second control replay is compared with the material-color variant.
+
+The local BizHawk shortcut omitted mandatory script arguments. The launcher
+now supplies local defaults, installs missing core files before checking them,
+backs up its configuration and opens the same ROM through the custom adapter.
+An actual local BizHawk launch was checked as well as the headless adapter.
+
+The next QS1 report was saved by a still-running older core: its process start
+predated the update and its installed engine hash differed from the rebuilt
+engine. The current QS1 was archived separately as `appearance-reported-qs1-v2`
+and tested with its actual selected colors (`0x040102`), three map cycles,
+native Rick-palette restoration and both colored door phases: 208 comparisons.
+`verify_appearance_transitions.py` reproduces those checks. The launcher now
+renames an in-use engine and installs the new DLL at the original path before
+starting a fresh process, preserving the old instance and its progress.
+`verify_bizhawk_launcher.ps1` checks this with an overwrite-blocking file handle.
+
+`verify_appearance_jumps.py` replays the next reported entrance save and jump
+sequences in both facing directions, normal/powered forms, and with/without
+air attacks. It checks complete mask coverage and separate skin-highlight
+components against native sprite art: 1,290 comparisons across 34 poses.
+This extends the earlier color-leak bounds checks, which could miss white
+islands remaining inside a colored mask. `appearance_probe.py` reconstructs
+the actual front-to-back native actor pixels for those checks.
+
+The powered guard's raised hand also touches the mask diagonally, and some
+finger highlights even share its four-connected gray component. Connectivity
+alone cannot separate these materials. A native-art signature now recognizes
+this head in either facing and applies its annotated cheek/hand boundary,
+including landing frames that reuse the artwork. Matching rendered art rather
+than the animation counter avoids stale-frame errors during DMA. The latest
+QS1 is archived as `appearance-hand-qs1.State`; the jump regression checks the
+annotated boundary as well as complete coverage of the other mask poses.
+
+The next QS1 (`appearance-blue-skin-qs1.State`) exposes the powered raised-arm
+pose: its shoulder and chest highlights connect diagonally to the face. A
+second native-head annotation keeps those highlights in the skin material and
+retains all 198 gray mask pixels, including the reflected artwork.
+`verify_appearance_skin_doors.py` checks this outline in both facings.
+
+Vertical door walks expose two additional material cases. The rear-facing
+native walk shows 23 disconnected mask-edge pixels around an exposed scalp;
+its largest gray component can instead be an arm highlight. Recognizing the
+native scalp art colors those edges while preserving scalp and arm highlights,
+without imposing a minimum face size on other poses. During door
+fade, scene gating can hide and re-enable ownership while SAT bytes and art
+remain identical. The material cache now keys on effective sprite ownership
+instead of the ungated saved ownership bytes, so it rebuilds on that change.
+The vertical-door regression checks 317 frames, including rear views, frontal
+walks, room loading and fades; jump and map/door regressions also pass.
+
+Powered floor poses 98/9D (mirrored E5/EA) rotate the mask into chest and
+shoulder glints. Native-art contour annotations now exclude 27/41 touching
+skin pixels while retaining all 135/120 visible gray mask pixels. Recognition
+uses the displayed face art, including its native red marks, in either facing.
+`verify_appearance_floor.py` stages all four native ROM poses through the real
+SAT/private-tile material path and checks the annotated boundary and preserved
+pale skin highlights. `native_rick_pose.py` supplies their original descriptors
+and four completed DMA chunks without changing the ROM or source save.
+
+Powered recovery poses 99/E6 also connect the chin to two chest highlights
+and the back of the head to a shoulder highlight. Their native head signature
+now applies the drawn chin boundary: 152 gray mask pixels remain mask, and 55
+touching skin pixels retain the skin material. `verify_appearance_recovery.py`
+checks both original ROM poses, cache rebuilding and pale skin highlights.
+
+The follow-up QS1 shows AF, rather than recovery pose 99: the raised-hands
+transformation sequence has two palette phases (AF/B0, mirrored FC/FD) and a
+different final pose (B1/FE). The earlier 8-connected jump check incorrectly
+counted connected chest highlights as part of the mask. Native face contours
+now retain 118/118/137 mask pixels and exclude 54/11/13 touching skin pixels.
+`verify_appearance_raised_hands.py` replays this exact QS1, tests all six native
+poses, and captures the corrected live render. The jump regression now uses
+these annotated boundaries instead of accepting the entire gray component.
+
+The next QS1 captures leaning powered guard F7 (mirrored AA). Its fingers
+touch the temple's gray surface; a native-art contour retains 193 mask pixels
+and excludes 41 touching skin pixels. `verify_appearance_hand_door.py` checks
+the exact QS1, both original native facings, and the 23 colored rear mask-edge
+pixels through 25 upward-door frames. This corrects the earlier rear-view
+assumption which left those visible mask edges white. The jump check also
+recognizes leaning art during DMA transitions, rather than using a frame ID.
+
+The next QS1 exposes two pale normal-form neck glints which touch the walking
+mask diagonally. Its native head signature (including both brow shading phases)
+now excludes those two skin coordinates in either facing. The upward-door
+top-center pixel is part of the mask tip, so it joins the colored rear edges;
+the separate scalp highlight below stays pale. `verify_appearance_neck_tip.py`
+checks the exact QS1, six native walking poses and 25 upward-door frames,
+including the top pixel's RGB and preserved scalp RGB.
+
+Crowded-scene QS1 slowdown was native CPU-budget exhaustion, rather than a
+host frame-time overrun. In two 900-video-frame replays, the old core completed
+709 game updates while idle and 745 during combat (191/155 missed updates).
+Host median costs were 1.82/2.53 ms, with no frame exceeding 16.67 ms.
+
+Injected P2 updates, duplicate sprite construction and partner contact retries
+now charge their instruction base cycles at one quarter cost. Original work,
+memory waits, VDP, audio and interrupt timing retain their existing charges;
+CPU time remains monotonic, and no clock is rewound or extra game tick inserted.
+This uses existing serialized context flags and leaves the save layout intact.
+The same QS1 now completes exactly one game update on each of 900 video frames
+in both input scenarios, with median host costs around 1.2 ms. Repeated saved
+replays match frame-for-frame. With co-op disabled, all 900 rendered control
+frames are identical between the old and rebuilt cores. Combat, controls,
+mixed forms, power duration, respawn, doors, maps and appearance regressions
+also pass. `benchmark_qs1.py` records traces; `verify_performance.py` checks
+cadence, deterministic replay and the unchanged native control.

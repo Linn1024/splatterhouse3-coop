@@ -89,6 +89,9 @@ python tools/verify_death.py
 python tools/verify_room_gate.py
 python tools/verify_door_animation.py
 python tools/verify_adapter.py
+python tools/verify_appearance.py
+python tools/verify_appearance_title.py
+python tools/verify_preview_art.py
 python tools/verify_sprites.py
 python tools/verify_pickups.py
 python tools/verify_debug.py
@@ -101,3 +104,26 @@ deliberately clears enemies to isolate door coordination; combat checks are
 separate. Some additional regression scripts require specific save-state
 fixtures that are not distributed. Disassembly tools additionally use Capstone.
 See [RESEARCH.md](RESEARCH.md) for implementation details and test boundaries.
+
+For the reported appearance issue, run `python tools/verify_appearance_replay.py`
+with the archived `diagnostics/appearance-reported-qs1.State`, or pass the path
+to a matching BizHawk state as its argument. It checks QS1 movement/attack
+poses and a cold start without changing the supplied save.
+
+`python tools/verify_appearance_transitions.py <state-path>` checks that save's
+actual selected colors through three map cycles and colored door entry/exit
+cinematics using the door fixture. `powershell -NoProfile -ExecutionPolicy Bypass
+-File tools/verify_bizhawk_launcher.ps1` checks replacing an in-use engine
+without closing its running instance; it mocks process launch in a temporary
+diagnostic installation.
+
+`python tools/verify_appearance_jumps.py <state-path>` checks the reported
+entrance and normal/powered jump and air-attack poses in both directions.
+Its default fixture is `diagnostics/appearance-reported-qs1-v3.State`.
+
+For the archived crowded-scene fixture `diagnostics/performance-qs1.State`,
+`python tools/benchmark_qs1.py <adapter-directory> <output-json>` records 900
+frames each of idle/combat input, host costs, native update cadence and video
+hashes. Append `native` to run the co-op-disabled control. The archived
+before/after/repeat outputs are checked by `python tools/verify_performance.py`;
+its assertions use update counts and hashes rather than host timing thresholds.

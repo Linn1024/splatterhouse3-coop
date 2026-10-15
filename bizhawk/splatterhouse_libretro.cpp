@@ -11,6 +11,7 @@
 #include "../engine/libretro/libretro-common/include/libretro.h"
 #include "../coop_hud.h"
 #include "../debug_menu.h"
+#include "../appearance_menu.h"
 namespace {
 struct Engine {
  HMODULE dll=nullptr; bool initialized=false,loaded=false;
@@ -24,6 +25,8 @@ struct Engine {
  void (*enable)(unsigned),(*status)(unsigned*);
  unsigned (*ready)(),(*paused)(),(*debug_flags)(),(*level)(),(*menu_get)();
  int (*debug)(unsigned),(*debug_stage)(unsigned);void (*menu_set)(unsigned);
+ unsigned (*appearance_get)(),(*appearance_menu_get)(),(*appearance_available)(),(*font_row)(unsigned,unsigned),(*preview_ink)(unsigned,unsigned),(*appearance_rgb)(unsigned,unsigned);
+ void (*appearance_set)(unsigned),(*appearance_menu_set)(unsigned);
  unsigned (*state_size)();int (*save)(void*,unsigned),(*restore)(const void*,unsigned);
 } c;
 retro_environment_t env=nullptr;retro_video_refresh_t video=nullptr;
@@ -96,7 +99,11 @@ void innerVideo(const void *p,unsigned w,unsigned h,size_t pitch){
 size_t innerAudio(const int16_t *p,size_t n){if(audio)return audio(p,n);if(sample)for(size_t i=0;i<n;i++)sample(p[i*2],p[i*2+1]);return n;}
 void innerSample(int16_t l,int16_t r){int16_t p[]={l,r};innerAudio(p,1);}
 void innerPoll(){}
-int16_t innerInput(unsigned p,unsigned device,unsigned,unsigned id){if(p>1||device!=RETRO_DEVICE_JOYPAD)return 0;return id==RETRO_DEVICE_ID_JOYPAD_MASK?pads[p]:((pads[p]>>id)&1);}
+int16_t innerInput(unsigned p,unsigned device,unsigned,unsigned id){
+ if(p>1||device!=RETRO_DEVICE_JOYPAD)return 0;
+ unsigned buttons=pads[p];if(!p && (c.appearance_available()&2))buttons|=pads[1];
+ return id==RETRO_DEVICE_ID_JOYPAD_MASK?buttons:((buttons>>id)&1);
+}
 bool restart(){menu=DebugMenu{};c.enable(0);if(!c.unserialize(startup.data(),startup.size()))return false;c.enable(1);pads[0]=pads[1]=0;return true;}
 void cleanup(){if(c.dll){if(c.loaded)c.unload_game();if(c.initialized)c.deinit();FreeLibrary(c.dll);}c=Engine{};menu=DebugMenu{};startup.clear();pixels.clear();opts.clear();}
 }
@@ -126,7 +133,7 @@ RETRO_API bool retro_load_game(const retro_game_info *game){
  LOAD(init);LOAD(deinit);LOAD(run);LOAD(unload_game);LOAD(set_environment);LOAD(set_video_refresh);LOAD(set_audio_sample);LOAD(set_audio_sample_batch);LOAD(set_input_poll);LOAD(set_input_state);LOAD(set_controller_port_device);LOAD(load_game);LOAD(get_system_av_info);LOAD(serialize_size);LOAD(serialize);LOAD(unserialize);
 #undef LOAD
 #define LOAD(n) c.n=(decltype(c.n))GetProcAddress(c.dll,"sh_coop_" #n);if(!c.n){cleanup();return false;}
- LOAD(debug);LOAD(debug_flags);LOAD(debug_stage);LOAD(level);LOAD(menu_get);LOAD(menu_set);LOAD(paused);LOAD(ready);LOAD(enable);LOAD(status);LOAD(state_size);LOAD(save);LOAD(restore);
+ LOAD(appearance_get);LOAD(appearance_set);LOAD(appearance_menu_get);LOAD(appearance_menu_set);LOAD(appearance_available);LOAD(font_row);LOAD(preview_ink);LOAD(appearance_rgb);LOAD(debug);LOAD(debug_flags);LOAD(debug_stage);LOAD(level);LOAD(menu_get);LOAD(menu_set);LOAD(paused);LOAD(ready);LOAD(enable);LOAD(status);LOAD(state_size);LOAD(save);LOAD(restore);
 #undef LOAD
  c.set_environment(innerEnv);c.set_video_refresh(innerVideo);c.set_audio_sample(innerSample);c.set_audio_sample_batch(innerAudio);c.set_input_poll(innerPoll);c.set_input_state(innerInput);c.init();c.initialized=true;
  if(!c.load_game(game)){cleanup();return false;}c.loaded=true;
@@ -146,11 +153,12 @@ RETRO_API void retro_run(){
  if(!c.loaded)return;
  if(poll)poll();
  for(unsigned p=0;p<2;p++){pads[p]=0;if(input)for(unsigned b=0;b<16;b++)if(input(p,RETRO_DEVICE_JOYPAD,0,b))pads[p]|=1<<b;}
- if(!c.ready()){menu=DebugMenu{};menu.previous=pads[0]|pads[1];c.run();}
+ if(AppearanceMenu::update(c,pads[0]|pads[1],menu.debug)){menu.previous=pads[0]|pads[1];static const int16_t silence[1472]={};innerAudio(silence,736);}
+ else if(!c.ready()){menu=DebugMenu{};menu.previous=pads[0]|pads[1];c.run();}
  else if(!menu.update(pads[0]|pads[1],c.debug,c.debug_stage,c.level(),c.paused()))c.run();
  else {static const int16_t silence[1472]={};innerAudio(silence,736);}
  c.menu_set(menu.pack());
- if(video&&!pixels.empty()){unsigned status[10];c.status(status);auto output=displayFrame();drawCoopHud(output,displayWidth,displayHeight,status);menu.draw(output,displayWidth,displayHeight,c.debug_flags());video(output.data(),displayWidth,displayHeight,displayWidth*4);}
+ if(video&&!pixels.empty()){unsigned status[10];c.status(status);auto output=displayFrame();drawCoopHud(output,displayWidth,displayHeight,status,c.appearance_rgb(10,0xe05242));menu.draw(output,displayWidth,displayHeight,c.debug_flags());AppearanceMenu::draw(c,output,displayWidth,displayHeight,menu.debug);video(output.data(),displayWidth,displayHeight,displayWidth*4);}
 }
 // Include the last video frame for immediate display after loading.
 RETRO_API size_t retro_serialize_size(){return c.loaded?32+c.serialize_size()+c.state_size()+320*240*4:0;}
