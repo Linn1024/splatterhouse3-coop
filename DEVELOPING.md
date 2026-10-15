@@ -1,5 +1,7 @@
 # Building and testing
 
+Shared workflow: [common co-op development guide](../coop-guides/COOP-DEVELOPMENT.md).
+
 Players can use the [installer or portable download](README.md#download-and-install).
 These instructions are for building from source on 64-bit Windows.
 
