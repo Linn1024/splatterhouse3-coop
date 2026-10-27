@@ -22,6 +22,13 @@ standalone saves/controls are copied there once when upgrading without replacing
 newer user files. If the selected ROM is moved or deleted, choose it again.
 These settings apply to the standalone EXE; BizHawk retains its own settings.
 
+In **Settings > Controls**, **Controller** means an Xbox-compatible game controller.
+Every keyboard/controller binding has a **Clear** button. Save shortcuts can also
+be changed or cleared there: **F5 quicksave**, **F8 quickload**, **F6 next slot**,
+and **F7 previous slot** by default. There are **10 slots (1-10)**; next/previous
+wrap at the ends. The selected slot is remembered. The **Saves** menu selects a
+slot or saves/loads directly, and the controls window has Save now/Load now buttons.
+
 
 An experimental two-player co-op version of Splatterhouse 3 for Windows. Play
 as two independently controlled Ricks with separate health and power meters,
@@ -92,8 +99,8 @@ supported; controller hardware has not yet been tested extensively.
 | Jump | Space | L | A |
 | Start / map | Enter (shared) | Enter (shared) | Start |
 
-**F6** saves, **F8** loads, **F9** pauses the emulator, **F5** resets to the
-title screen, and **Esc** closes the game.
+**F5** quicksaves, **F8** quickloads, **F6/F7** select the next/previous slot,
+**F9** pauses the emulator, and **Esc** closes the game.
 
 Blue P1 appears on the upper HUD row and red P2 on the lower row. Lives are
 shared. Both players must reach the same door to leave a room.
@@ -117,8 +124,9 @@ the default appearance. P1 and enemy colors stay unchanged.
 
 ### Saves, updates, and uninstalling
 
-The standalone game uses one save slot: `coop-save.state` in the game folder.
-F6 replaces that slot. Saves include both players and require this custom core;
+The portable standalone uses ten slots: `saves/slot-N.shstate` in its per-user
+folder. An older `coop-save.state` is still loaded from slot 1 if no new slot-1
+file exists. Saves include both players and require this custom core;
 ordinary single-player emulator saves are not interchangeable.
 
 Close the game before installing an update into the same folder. Back up your

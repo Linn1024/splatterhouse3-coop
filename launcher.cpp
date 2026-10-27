@@ -142,9 +142,6 @@ LRESULT CALLBACK windowProc(HWND w,UINT m,WPARAM a,LPARAM b) {
   if(a==VK_ESCAPE){DestroyWindow(w);return 0;}
   if(!(b&(1L<<30))){
    if(a==VK_F9){paused=!paused;if(audioDevice)waveOutReset(audioDevice);InvalidateRect(w,nullptr,FALSE);}
-   if(a==VK_F5)restartLevel();
-   if(a==VK_F6 && !saveGame())MessageBoxA(w,"Could not save game.","Save",MB_ICONERROR);
-   if(a==VK_F8 && !loadGame())MessageBoxA(w,"No compatible save found.","Load",MB_ICONERROR);
   }return 0;
  case WM_PAINT:{PAINTSTRUCT ps;HDC dc=BeginPaint(w,&ps);paint(dc);EndPaint(w,&ps);return 0;}
  }return DefWindowProc(w,m,a,b);
@@ -167,12 +164,13 @@ bool saveGame() {
  memcpy(data.data(),header,16);
  core.menu_set(menu.pack());
  if(!core.serialize(data.data()+16,n)||!core.save(data.data()+16+n,extra))return false;
- FILE *f=fopen("coop-save.tmp","wb");if(!f)return false;
+ CreateDirectoryA("saves",nullptr);std::string path="saves/slot-"+std::to_string(coopdesktop::saveSlot)+".shstate",temp=path+".tmp";
+ FILE *f=fopen(temp.c_str(),"wb");if(!f)return false;
  bool ok=fwrite(data.data(),1,data.size(),f)==data.size();if(fclose(f))ok=false;
- return ok && MoveFileExA("coop-save.tmp","coop-save.state",MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH);
+ return ok && MoveFileExA(temp.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH);
 }
 bool loadGame() {
- auto data=readFile("coop-save.state");if(data.size()<16)return false;
+ auto data=readFile(("saves/slot-"+std::to_string(coopdesktop::saveSlot)+".shstate").c_str());if(data.empty()&&coopdesktop::saveSlot==1)data=readFile("coop-save.state");if(data.size()<16)return false;
  uint32_t h[4];memcpy(h,data.data(),16);
  if(h[0]!=0x53483343||h[1]!=1||h[2]!=core.serialize_size()||h[3]!=core.state_size()||data.size()!=16ull+h[2]+h[3])return false;
  if(!core.unserialize(data.data()+16,h[2])||!core.restore(data.data()+16+h[2],h[3]))return false;
@@ -219,6 +217,7 @@ int main(int argc,char **argv) {
   {'J','K',0,VK_NUMPAD0,VK_UP,VK_DOWN,VK_LEFT,VK_RIGHT,'L',0,'O',0,0,0,0,0}};
  const unsigned desktopPads[16]={XINPUT_GAMEPAD_X,XINPUT_GAMEPAD_B,0,XINPUT_GAMEPAD_START,1,2,4,8,XINPUT_GAMEPAD_A,0,XINPUT_GAMEPAD_Y,0,0,0,0,0};
  coopdesktop::configure(desktopKeys,desktopPads,{{4,L"Up"},{5,L"Down"},{6,L"Left"},{7,L"Right"},{0,L"Attack"},{1,L"Transform"},{8,L"Jump"},{3,L"Start / map"}});
+ coopdesktop::setupSaves([](int){return saveGame();},[](int){return loadGame();});
  if(!testFrames) {
   SetProcessDPIAware();WNDCLASSA wc={};wc.lpfnWndProc=windowProc;wc.hInstance=GetModuleHandle(nullptr);wc.lpszClassName="Splatterhouse3Coop";wc.hCursor=LoadCursor(nullptr,IDC_ARROW);RegisterClassA(&wc);
   windowHandle=CreateWindowA(wc.lpszClassName,"Splatterhouse 3 - Co-op prototype",WS_OVERLAPPEDWINDOW|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,1000,850,nullptr,nullptr,wc.hInstance,nullptr);

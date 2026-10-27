@@ -24,6 +24,30 @@ static std::function<bool(const std::vector<unsigned char>&)> validate;
 static std::function<void()> externalControls;
 struct Binding {int id;const wchar_t *label;};
 static std::vector<Binding> bindings;
+static int number(const wchar_t*,const wchar_t*,int);
+static void writeSetting(const wchar_t*,const wchar_t*,const std::wstring&);
+static int saveKeys[4]={VK_F5,VK_F8,VK_F6,VK_F7},saveSlot=1;
+static const wchar_t *saveIds[]={L"Quicksave",L"Quickload",L"NextSlot",L"PreviousSlot"};
+static const wchar_t *saveNames[]={L"Quicksave",L"Quickload",L"Next slot",L"Previous slot"};
+static std::function<bool(int)> saveCallback,loadCallback;
+static std::function<void(int)> slotCallback;
+static HMENU savesMenu=nullptr;
+static void refreshControls();
+static void refreshSaves(const wchar_t *notice=L"");
+static bool saveKey(int key){for(int k:saveKeys)if(k&&k==key)return true;return false;}
+static void setupSaves(std::function<bool(int)>save,std::function<bool(int)>load,std::function<void(int)>selected={}){
+ saveCallback=save;loadCallback=load;slotCallback=selected;
+ saveSlot=std::max(1,std::min(10,number(L"Saves",L"Slot",1)));
+ for(int i=0;i<4;i++)saveKeys[i]=number(L"Hotkeys",saveIds[i],saveKeys[i]);
+ if(slotCallback)slotCallback(saveSlot);
+}
+static void selectSlot(int slot){saveSlot=(slot+9)%10+1;writeSetting(L"Saves",L"Slot",std::to_wstring(saveSlot));if(slotCallback)slotCallback(saveSlot);refreshSaves();}
+static void saveAction(int action){
+ if(action==2){selectSlot(saveSlot+1);return;}if(action==3){selectSlot(saveSlot-1);return;}
+ bool ok=action==0?(saveCallback&&saveCallback(saveSlot)):(loadCallback&&loadCallback(saveSlot));
+ refreshSaves(ok?(action==0?L"Saved":L"Loaded"):(action==0?L"Save failed":L"Load failed or empty slot"));
+}
+
 static std::wstring wide(const std::string&s){int n=MultiByteToWideChar(CP_UTF8,0,s.c_str(),-1,nullptr,0);std::wstring r(n,L'\0');MultiByteToWideChar(CP_UTF8,0,s.c_str(),-1,&r[0],n);if(n)r.resize(n-1);return r;}
 static std::string utf8(const std::wstring&s){int n=WideCharToMultiByte(CP_UTF8,0,s.c_str(),-1,nullptr,0,nullptr,nullptr);std::string r(n,'\0');WideCharToMultiByte(CP_UTF8,0,s.c_str(),-1,&r[0],n,nullptr,nullptr);if(n)r.resize(n-1);return r;}
 static std::wstring readSetting(const wchar_t*section,const wchar_t*key,const wchar_t*fallback=L"") {wchar_t b[32768];GetPrivateProfileStringW(section,key,fallback,b,32768,ini.c_str());return b;}
@@ -94,41 +118,75 @@ static void resizeClient(int width,int height){
 }
 static std::wstring keyName(int key){if(!key)return L"Unbound";wchar_t b[80]{};unsigned scan=MapVirtualKeyW(key,MAPVK_VK_TO_VSC);if(key>=VK_PRIOR&&key<=VK_DOWN)scan|=0x100;GetKeyNameTextW(scan<<16,b,80);return *b?b:L"Key "+std::to_wstring(key);}
 static std::wstring padName(unsigned b){const unsigned ids[]={1,2,4,8,16,32,64,128,256,512,4096,8192,16384,32768};const wchar_t*names[]={L"Up",L"Down",L"Left",L"Right",L"Start",L"Back",L"Left stick",L"Right stick",L"LB",L"RB",L"A",L"B",L"X",L"Y"};for(int i=0;i<14;i++)if(ids[i]==b)return names[i];return L"Unbound";}
-static void refreshControls(){if(!controlWindow)return;for(int p=0;p<2;p++)for(unsigned r=0;r<bindings.size();r++){int id=bindings[r].id;SetDlgItemTextW(controlWindow,100+p*100+r,keyName(keys[p][id]).c_str());SetDlgItemTextW(controlWindow,120+p*100+r,padName(padKeys[p][id]).c_str());}}
-static void saveBinding(int p,int id,bool pad){std::wstring section=std::wstring(p?L"P2":L"P1")+(pad?L"Gamepad":L"Keyboard");writeSetting(section.c_str(),std::to_wstring(id).c_str(),std::to_wstring(pad?padKeys[p][id]:keys[p][id]));capture=-1;refreshControls();SetDlgItemTextW(controlWindow,1,L"Choose a binding. Esc cancels; Delete clears it.");}
+static void refreshSaves(const wchar_t *notice){
+ if(savesMenu){for(int i=0;i<4;i++)ModifyMenuW(savesMenu,9060+i,MF_BYCOMMAND|MF_STRING,9060+i,(std::wstring(saveNames[i])+L"\t"+(saveKeys[i]?keyName(saveKeys[i]):L"Unbound")).c_str());CheckMenuRadioItem(savesMenu,9071,9080,9070+saveSlot,MF_BYCOMMAND);}
+ if(host){std::wstring title=gameTitle+L" - Slot "+std::to_wstring(saveSlot);if(*notice)title+=L" - "+std::wstring(notice);SetWindowTextW(host,title.c_str());}
+ if(controlWindow){SetDlgItemTextW(controlWindow,4,(L"Selected slot: "+std::to_wstring(saveSlot)+L" / 10").c_str());for(int i=0;i<4;i++)SetDlgItemTextW(controlWindow,500+i,keyName(saveKeys[i]).c_str());}
+}
+static void refreshControls(){if(!controlWindow)return;for(int p=0;p<2;p++)for(unsigned r=0;r<bindings.size();r++){int id=bindings[r].id;SetDlgItemTextW(controlWindow,100+p*100+r,keyName(keys[p][id]).c_str());SetDlgItemTextW(controlWindow,120+p*100+r,padName(padKeys[p][id]).c_str());}refreshSaves();}
+static void saveBinding(int p,int id,bool pad){std::wstring section=std::wstring(p?L"P2":L"P1")+(pad?L"Gamepad":L"Keyboard");writeSetting(section.c_str(),std::to_wstring(id).c_str(),std::to_wstring(pad?padKeys[p][id]:keys[p][id]));capture=-1;refreshControls();SetDlgItemTextW(controlWindow,1,L"Click a binding to change it, or Clear to remove it. Esc cancels; Delete clears.");}
+static void saveHotkey(int index,int key){
+ for(int i=0;i<4;i++)if(i!=index&&key&&saveKeys[i]==key){saveKeys[i]=0;writeSetting(L"Hotkeys",saveIds[i],L"0");}
+ saveKeys[index]=key;writeSetting(L"Hotkeys",saveIds[index],std::to_wstring(key));capture=-1;refreshControls();
+ SetDlgItemTextW(controlWindow,1,L"Click a binding to change it, or Clear to remove it. Esc cancels; Delete clears.");
+}
 static LRESULT CALLBACK controlProc(HWND w,UINT m,WPARAM a,LPARAM b){
- if(m==WM_COMMAND){int id=LOWORD(a);if(id>=100&&id<240){capture=id;SetDlgItemTextW(w,1,(id%100>=20)?L"Press a button on this player's controller. Esc cancels.":L"Press a keyboard key. Esc cancels; Delete clears.");SetFocus(w);}return 0;}
- if(m==WM_KEYDOWN && capture>=0){int p=(capture-100)/100,r=(capture-100)%100;bool pad=r>=20;r%=20;if(a==VK_ESCAPE){capture=-1;refreshControls();return 0;}if(a==VK_F2||a==VK_F5||a==VK_F6||a==VK_F8||a==VK_F9||a==VK_F11)return 0;if(a==VK_DELETE){if(pad)padKeys[p][bindings[r].id]=0;else keys[p][bindings[r].id]=0;saveBinding(p,bindings[r].id,pad);}else if(!pad){keys[p][bindings[r].id]=(int)a;saveBinding(p,bindings[r].id,false);}return 0;}
- if(m==WM_TIMER && getPad){for(int p=0;p<2;p++){XINPUT_STATE state{};unsigned now=getPad(p,&state)==ERROR_SUCCESS?state.Gamepad.wButtons:0,edge=now&~previousPad[p];previousPad[p]=now;if(capture>=0 && (capture-100)/100==p && (capture-100)%100>=20 && edge){int r=(capture-100)%100-20;padKeys[p][bindings[r].id]=edge&(~edge+1);saveBinding(p,bindings[r].id,true);}}return 0;}
+ if(m==WM_COMMAND){int id=LOWORD(a);
+  if(id>=500&&id<504){capture=id;SetDlgItemTextW(w,1,L"Press a keyboard key for this shortcut. Esc cancels; Delete clears.");SetFocus(w);return 0;}
+  if(id>=510&&id<514){saveHotkey(id-510,0);return 0;}
+  if(id>=520&&id<524){saveAction(id-520);return 0;}
+  if(id>=300&&id<440){int p=(id-300)/100,r=(id-300)%100;bool pad=r>=20;r%=20;if(p<2&&r<(int)bindings.size()){if(pad)padKeys[p][bindings[r].id]=0;else keys[p][bindings[r].id]=0;saveBinding(p,bindings[r].id,pad);}return 0;}
+  if(id>=100&&id<240){int p=(id-100)/100,r=(id-100)%100;if(p<2&&r%20<(int)bindings.size()){capture=id;SetDlgItemTextW(w,1,r>=20?L"Press a button on this player's controller. Esc cancels; Delete clears.":L"Press a keyboard key. Esc cancels; Delete clears.");SetFocus(w);}return 0;}
+ }
+ if(m==WM_KEYDOWN&&capture>=0){
+  if(a==VK_ESCAPE){capture=-1;refreshControls();SetDlgItemTextW(w,1,L"Binding cancelled.");return 0;}
+  if(a==VK_F1||a==VK_F2||a==VK_F9||a==VK_F11){SetDlgItemTextW(w,1,L"F1, F2, F9 and F11 are reserved. Choose another key.");return 0;}
+  if(capture>=500){saveHotkey(capture-500,a==VK_DELETE?0:(int)a);return 0;}
+  int p=(capture-100)/100,r=(capture-100)%100;bool pad=r>=20;r%=20;
+  if(!pad&&a!=VK_DELETE&&saveKey((int)a)){SetDlgItemTextW(w,1,L"That key is assigned to a save shortcut below. Clear or change it first.");return 0;}
+  if(a==VK_DELETE){if(pad)padKeys[p][bindings[r].id]=0;else keys[p][bindings[r].id]=0;saveBinding(p,bindings[r].id,pad);}else if(!pad){keys[p][bindings[r].id]=(int)a;saveBinding(p,bindings[r].id,false);}return 0;
+ }
+ if(m==WM_TIMER&&getPad){for(int p=0;p<2;p++){XINPUT_STATE state{};unsigned now=getPad(p,&state)==ERROR_SUCCESS?state.Gamepad.wButtons:0,edge=now&~previousPad[p];previousPad[p]=now;if(capture>=100&&capture<240&&(capture-100)/100==p&&(capture-100)%100>=20&&edge){int r=(capture-100)%100-20;padKeys[p][bindings[r].id]=edge&(~edge+1);saveBinding(p,bindings[r].id,true);}}return 0;}
  if(m==WM_CLOSE){DestroyWindow(w);return 0;}if(m==WM_DESTROY){KillTimer(w,1);controlWindow=nullptr;capture=-1;EnableWindow(host,TRUE);SetForegroundWindow(host);return 0;}
  return DefWindowProcW(w,m,a,b);
 }
 static void openControls(){
  if(externalControls){externalControls();return;}if(controlWindow){SetForegroundWindow(controlWindow);return;}
  WNDCLASSW wc{};wc.lpfnWndProc=controlProc;wc.hInstance=GetModuleHandleW(nullptr);wc.lpszClassName=L"CoopDesktopControls";wc.hbrBackground=(HBRUSH)(COLOR_BTNFACE+1);wc.hCursor=LoadCursor(nullptr,IDC_ARROW);RegisterClassW(&wc);
- controlWindow=CreateWindowW(wc.lpszClassName,(gameTitle+L" - Controls").c_str(),WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,810,140+int(bindings.size())*30,host,nullptr,wc.hInstance,nullptr);
- CreateWindowW(L"STATIC",L"Choose a binding. Esc cancels; Delete clears it.",WS_CHILD|WS_VISIBLE,12,10,775,25,controlWindow,(HMENU)1,nullptr,nullptr);
- for(int p=0;p<2;p++){int x=12+p*390;CreateWindowW(L"STATIC",p?L"PLAYER 2      Keyboard         Gamepad":L"PLAYER 1      Keyboard         Gamepad",WS_CHILD|WS_VISIBLE,x,42,380,25,controlWindow,nullptr,nullptr,nullptr);for(unsigned r=0;r<bindings.size();r++){CreateWindowW(L"STATIC",bindings[r].label,WS_CHILD|WS_VISIBLE,x,77+r*30,140,25,controlWindow,nullptr,nullptr,nullptr);CreateWindowW(L"BUTTON",L"",WS_CHILD|WS_VISIBLE,x+145,72+r*30,105,27,controlWindow,(HMENU)(INT_PTR)(100+p*100+r),nullptr,nullptr);CreateWindowW(L"BUTTON",L"",WS_CHILD|WS_VISIBLE,x+257,72+r*30,113,27,controlWindow,(HMENU)(INT_PTR)(120+p*100+r),nullptr,nullptr);}}
+ int rows=(int)bindings.size(),bottom=82+rows*30;RECT size{0,0,790,bottom+202};AdjustWindowRectEx(&size,WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU,FALSE,0);
+ controlWindow=CreateWindowW(wc.lpszClassName,(gameTitle+L" - Controls").c_str(),WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,size.right-size.left,size.bottom-size.top,host,nullptr,wc.hInstance,nullptr);
+ auto label=[&](const wchar_t*text,int x,int y,int width,int id=0,DWORD style=0){CreateWindowW(L"STATIC",text,WS_CHILD|WS_VISIBLE|style,x,y,width,24,controlWindow,(HMENU)(INT_PTR)id,nullptr,nullptr);};
+ auto button=[&](const wchar_t*text,int x,int y,int width,int id){CreateWindowW(L"BUTTON",text,WS_CHILD|WS_VISIBLE|WS_TABSTOP,x,y,width,27,controlWindow,(HMENU)(INT_PTR)id,nullptr,nullptr);};
+ label(L"Click a binding to change it, or Clear to remove it. Esc cancels; Delete clears.",12,10,768,1);
+ for(int p=0;p<2;p++){int x=12+p*390;label(p?L"PLAYER 2":L"PLAYER 1",x,44,85);label(L"Keyboard",x+90,44,80,0,SS_CENTER);label(L"Controller",x+224,44,90,0,SS_CENTER);
+  for(int r=0;r<rows;r++){int y=74+r*30;label(bindings[r].label,x,y+5,85);button(L"",x+90,y,80,100+p*100+r);button(L"Clear",x+174,y,42,300+p*100+r);button(L"",x+224,y,90,120+p*100+r);button(L"Clear",x+318,y,42,320+p*100+r);}}
+ label(L"Controller = an Xbox-compatible game controller (P1: controller 1, P2: controller 2).",12,bottom,768);
+ label(L"SAVE SHORTCUTS",12,bottom+32,180);label(L"Keyboard",202,bottom+32,100,0,SS_CENTER);label(L"",590,bottom+32,180,4);
+ for(int i=0;i<4;i++){int y=bottom+59+i*31;label(saveNames[i],12,y+5,180);button(L"",202,y,100,500+i);button(L"Clear",310,y,60,510+i);button(i==0?L"Save now":i==1?L"Load now":i==2?L"Next slot":L"Previous slot",400,y,140,520+i);}
  EnumChildWindows(controlWindow,[](HWND child,LPARAM)->BOOL{SendMessage(child,WM_SETFONT,(WPARAM)GetStockObject(DEFAULT_GUI_FONT),TRUE);return TRUE;},0);
  refreshControls();EnableWindow(host,FALSE);SetTimer(controlWindow,1,20,nullptr);
 }
 static void configure(const int defaults[2][16],const unsigned padDefaults[16],std::initializer_list<Binding>rows){
  bindings=rows;for(int p=0;p<2;p++)for(int b=0;b<16;b++){std::wstring key=std::to_wstring(b);keys[p][b]=number(p?L"P2Keyboard":L"P1Keyboard",key.c_str(),defaults[p][b]);padKeys[p][b]=number(p?L"P2Gamepad":L"P1Gamepad",key.c_str(),padDefaults[b]);}
 }
-static unsigned buttons(int p){unsigned bits=0;for(int b=0;b<16;b++)if(keys[p][b] && (GetAsyncKeyState(keys[p][b])&0x8000))bits|=1u<<b;XINPUT_STATE s{};if(getPad && getPad(p,&s)==ERROR_SUCCESS){for(int b=0;b<16;b++)if(padKeys[p][b] && (s.Gamepad.wButtons&padKeys[p][b]))bits|=1u<<b;if(s.Gamepad.sThumbLX<-12000)bits|=1<<6;if(s.Gamepad.sThumbLX>12000)bits|=1<<7;if(s.Gamepad.sThumbLY>12000)bits|=1<<4;if(s.Gamepad.sThumbLY<-12000)bits|=1<<5;}return bits;}
+static unsigned buttons(int p){unsigned bits=0;for(int b=0;b<16;b++)if(keys[p][b] && !saveKey(keys[p][b]) && (GetAsyncKeyState(keys[p][b])&0x8000))bits|=1u<<b;XINPUT_STATE s{};if(getPad && getPad(p,&s)==ERROR_SUCCESS){for(int b=0;b<16;b++)if(padKeys[p][b] && (s.Gamepad.wButtons&padKeys[p][b]))bits|=1u<<b;if(padKeys[p][6]&&s.Gamepad.sThumbLX<-12000)bits|=1<<6;if(padKeys[p][7]&&s.Gamepad.sThumbLX>12000)bits|=1<<7;if(padKeys[p][4]&&s.Gamepad.sThumbLY>12000)bits|=1<<4;if(padKeys[p][5]&&s.Gamepad.sThumbLY<-12000)bits|=1<<5;}return bits;}
 static void attach(HWND window,unsigned w,unsigned h,std::function<void()>controls={}){
  host=window;externalControls=controls;geometry(w,h);normalMenu=GetMenu(host);if(!normalMenu)normalMenu=CreateMenu();
  HMENU settings=CreatePopupMenu(),display=CreatePopupMenu();AppendMenuW(settings,MF_STRING,9001,L"Choose ROM...");AppendMenuW(settings,MF_STRING,9002,L"Controls...\tF2");
  for(int i=1;i<=4;i++)AppendMenuW(display,MF_STRING,9010+i,(std::to_wstring(i)+L"x window").c_str());AppendMenuW(display,MF_STRING,9003,L"Fullscreen\tF11 / Alt+Enter");AppendMenuW(settings,MF_POPUP,(UINT_PTR)display,L"Screen size");AppendMenuW(settings,MF_STRING,9004,L"Open saves and settings folder");AppendMenuW(normalMenu,MF_POPUP,(UINT_PTR)settings,L"Settings");SetMenu(host,normalMenu);DrawMenuBar(host);
+ if(saveCallback){savesMenu=CreatePopupMenu();for(int i=0;i<4;i++)AppendMenuW(savesMenu,MF_STRING,9060+i,saveNames[i]);AppendMenuW(savesMenu,MF_SEPARATOR,0,nullptr);for(int i=1;i<=10;i++)AppendMenuW(savesMenu,MF_STRING,9070+i,(L"Slot "+std::to_wstring(i)).c_str());AppendMenuW(normalMenu,MF_POPUP,(UINT_PTR)savesMenu,L"Saves");DrawMenuBar(host);refreshSaves();}
  attaching=true;resizeClient(std::max(256,number(L"Display",L"Width",w*3)),std::max(224,number(L"Display",L"Height",h*3)));attaching=false;
  if(number(L"Display",L"Fullscreen",0))toggleFull();
 }
 static bool handle(HWND w,UINT m,WPARAM a,LPARAM b){
  if((m==WM_SYSKEYDOWN&&a==VK_RETURN)||(m==WM_KEYDOWN&&a==VK_F11&&!(b&(1L<<30)))){toggleFull();return true;}
+ if(m==WM_KEYDOWN&&saveCallback){for(int i=0;i<4;i++)if(saveKeys[i]&&a==(WPARAM)saveKeys[i]){if(!(b&(1L<<30)))saveAction(i);return true;}}
  if(m==WM_EXITSIZEMOVE){saveWindow();return false;}
  if(m==WM_CLOSE || m==WM_DESTROY){saveWindow();return false;}
  if(m!=WM_COMMAND || LOWORD(a)<9000)return false;
  int id=LOWORD(a);
+ if(id>=9060&&id<=9063){saveAction(id-9060);return true;}
+ if(id>=9071&&id<=9080){selectSlot(id-9070);return true;}
  if(id>=9011&&id<=9014)resizeClient(frameWidth*(id-9010),frameHeight*(id-9010));
  if(id==9002)openControls();if(id==9003)toggleFull();
  if(id==9004)ShellExecuteW(host,L"open",data.c_str(),nullptr,nullptr,SW_SHOWNORMAL);
