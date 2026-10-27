@@ -1,5 +1,28 @@
 # Splatterhouse 3 Co-op
 
+## Portable EXE: choose a ROM and play
+
+[Download the portable Windows x64 ZIP](https://github.com/Linn1024/coop-releases/releases/download/windows-2026-10-27/Splatterhouse3-Coop-Portable-Windows-x64.zip).
+
+1. Extract the entire ZIP and open **Splatterhouse3-Coop.exe**. Keep its `engine` folder beside it.
+2. On first run, choose your own original USA ROM. Its filename and folder can
+   be anything; the launcher verifies the contents and remembers the location.
+3. Next time, open the same EXE to play. The ROM is read from its original
+   location and is not copied into the download.
+
+Use **Settings > Choose ROM** to select a different location, **Settings >
+Screen size** for 1x/2x/3x/4x windows or fullscreen, and **Settings > Controls**
+(or **F2**) to rebind either player's keyboard and Xbox-compatible gamepad.
+**F11** or **Alt+Enter** toggles fullscreen. Resizing the window and changing
+controls are remembered for the next launch.
+
+Settings and standalone saves live in `%LOCALAPPDATA%\Linn1024Coop\Splatterhouse3Coop`.
+**Settings > Open saves and settings folder** opens that folder. Existing local
+standalone saves/controls are copied there once when upgrading without replacing
+newer user files. If the selected ROM is moved or deleted, choose it again.
+These settings apply to the standalone EXE; BizHawk retains its own settings.
+
+
 An experimental two-player co-op version of Splatterhouse 3 for Windows. Play
 as two independently controlled Ricks with separate health and power meters,
 shared lives, and coordinated room exits. The original game ROM stays unchanged.
